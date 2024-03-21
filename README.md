@@ -1,2 +1,2 @@
-# ENPM661-Projects
-A repository to keep track of project 3 and 5
+# ENPM661 Project 3
+## Implementation of A* algorithm on a mobile robot 
