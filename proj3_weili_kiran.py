@@ -58,7 +58,7 @@ def draw_obstacles_with_clearance(canvas, clearance):
     return canvas
 
 
-def validate_point(canvas):
+def validate_points(canvas):
     """ this function checks the validity of start and goal nodes 
 
     Args:
@@ -116,7 +116,31 @@ def validate_point(canvas):
             goal_state.clear()
         else:
             break
-    return initial_state,goal_state
+    while True:
+        initial_angle = input("Enter the initial angle of orientation in degree(+-30)")
+        if int(initial_angle)%30!=0: # check if the angle entered is valid 
+            print("Enter a valid angle (+-30 degrees)")
+        else:
+            if int(initial_angle)<0:
+                initial_angle = 360 + int(initial_angle)
+            initial_state.append(int(initial_angle))
+            break
+    while True:
+        goal_angle = input("Enter the goal angle of orientation in degree(+-30)")
+        if int(goal_angle)%30!=0: # check if the angle entered is valid 
+            print("Enter a valid angle (+-30 degrees)")
+        else:
+            if int(goal_angle)<0:
+                goal_angle = 360 + int(goal_angle)
+            goal_state.append(int(goal_angle))
+            break
+    while True:
+        step_size = input("Enter the step size (1-10): ")
+        if int(step_size)<1 and int(step_size)>10: # check if the step size entered is valid 
+            print("Invalid step size,try again..")
+        else:
+            break
+    return initial_state,goal_state, int(step_size)
 
 
 def get_radius_and_clearance():
@@ -152,7 +176,7 @@ if __name__ == '__main__':
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
-    initial_state,goal_state = validate_point(canvas) 
+    initial_state,goal_state ,step_size = validate_points(canvas) 
     initial_state[1] = canvas.shape[0]-1 - initial_state[1]
     goal_state[1] = canvas.shape[0]-1 - goal_state[1]
     # to downscale the image to speed up the video 
