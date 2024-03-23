@@ -4,6 +4,12 @@ import heapq as hq
 import time
 
 
+def is_within_obstacle(canvas,new_height,new_width):
+    if canvas[int(round(new_height))][int(round(new_width))][0]==255:
+        return False
+    else:
+        return True
+
 def draw_obstacles(canvas):   
     """ this function is used to pbstacles in the map
     the obstacles are marked in white pixels
@@ -58,6 +64,131 @@ def draw_obstacles_with_clearance(canvas, clearance):
     return canvas
 
 
+#------------- ACTION FUNCTIONS ---------------
+
+def action_rotate_zero_degrees(node, canvas, visited, step):    
+    new_node = node.copy() # copy the current node avoid modifying the original
+    new_angle = new_node[2] + 0    # add angle of rotation, 0 here 
+
+    if new_angle < 0: # check for valid rotation angles 
+        new_angle += 360 
+    new_angle %= 360
+
+    new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))*2/2
+    new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))*2/2
+
+    # if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and  (canvas[int(round(new_height))][int(round(new_width))][0]!=255)   :
+    if (0 < round(new_height) < canvas.shape[0]) and (0 < round(new_width) < canvas.shape[1]) and is_within_obstacle(canvas,new_height,new_width):
+        new_node[0] = new_width
+        new_node[1] = new_height
+        new_node[2] = new_angle
+
+        if(visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] == 1):
+            return True, new_node, True
+        else: # mark the node as visited 
+            visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] = 1
+            return True, new_node, False
+    else: # invalid action, new position is either in the obstacle space or outside the map 
+        return False, new_node, False
+    
+
+
+def action_rotate_negative_thirty_degrees(node, canvas, visited, step):   
+    new_node= node.copy()
+    new_angle = new_node[2] + 30    
+    
+    if new_angle < 0:
+        new_angle += 360 
+    new_angle %= 360
+    new_width = round(new_node[0] + step * np.cos(np.deg2rad(new_angle)))*2/2
+    new_height = round(new_node[1] + step * np.sin(np.deg2rad(new_angle)))*2/2
+
+    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and is_within_obstacle(canvas,new_height,new_width) :
+        new_node[0] = new_width
+        new_node[1] = new_height
+        new_node[2] = new_angle
+        
+        if(visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] == 1):
+            return True, new_node, True
+        else:
+            visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] = 1
+            return True, new_node, False
+    else:
+        return False, new_node, False
+    
+def action_rotate_negative_sixty_degrees(node, canvas, visited, step):    
+    new_node = node.copy()
+    new_angle = new_node[2] + 60    
+    
+    if new_angle < 0:
+        new_angle += 360
+    
+    new_angle %= 360 
+    new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))*2/2
+    new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))*2/2
+
+    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and (is_within_obstacle(canvas,new_height,new_width)) :
+        new_node[0] = new_width
+        new_node[1] = new_height
+        new_node[2] = new_angle
+
+        if(visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] == 1):
+            return True, new_node,True
+        else:
+            visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] = 1
+            return True, new_node, False
+    else:
+        return False, new_node, False
+
+
+def action_rotate_positive_thirty_degrees(node, canvas, visited, step):    
+    new_node = node.copy()
+    new_angle = new_node[2] - 30    
+
+    if new_angle < 0:
+        new_angle += 360 
+    new_angle %= 360
+    new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
+    new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
+
+    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and (is_within_obstacle(canvas,new_height,new_width)) :
+        new_node[0] = new_width
+        new_node[1] = new_height
+        new_node[2] = new_angle
+
+        if(visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] == 1):
+            return True, new_node, True
+        else:
+            visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] = 1
+            return True, new_node, False
+    else:
+        return False, new_node, False
+
+
+def action_rotate_positive_sixty_degrees(node, canvas, visited, step):    # Local angles
+    new_node = node.copy()
+    new_angle = new_node[2] - 60    # Angle in Cartesian System
+
+    if new_angle < 0:
+        new_angle += 360
+    new_angle %= 360
+    new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
+    new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
+
+    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and (is_within_obstacle(canvas,new_height,new_width)) :
+        new_node[0] = new_width
+        new_node[1] = new_height
+        new_node[2] = new_angle
+
+        if(visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] == 1):
+            return True, new_node,True
+        else:
+            visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] = 1
+            return True, new_node,False
+    else:
+        return False, new_node,False
+    
+    
 def validate_points(canvas):
     """ this function checks the validity of start and goal nodes 
 
@@ -161,6 +292,8 @@ def get_radius_and_clearance():
     return int(clearance),int(radius)
 
 
+
+# ---------- MAIN FUNCTION ------------
 
 if __name__ == '__main__':
     
