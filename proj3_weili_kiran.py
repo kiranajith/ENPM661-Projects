@@ -2,7 +2,14 @@ import cv2
 import numpy as np
 import heapq as hq
 import time
+from math import sqrt
 
+
+# Global variable
+g_angle = 30
+g_action_set_number = 5
+g_total_degree = 360
+g_goal_threshold = 1.5
 
 def is_within_obstacle(canvas,new_height,new_width):
     if canvas[int(round(new_height))][int(round(new_width))][0]==255:
@@ -78,7 +85,9 @@ def action_rotate_zero_degrees(node, canvas, visited, step):
     new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))*2/2
 
     # if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and  (canvas[int(round(new_height))][int(round(new_width))][0]!=255)   :
-    if (0 < round(new_height) < canvas.shape[0]) and (0 < round(new_width) < canvas.shape[1]) and is_within_obstacle(canvas,new_height,new_width):
+    if (0 < round(new_height) < canvas.shape[0]) and \
+        (0 < round(new_width) < canvas.shape[1]) and \
+        is_within_obstacle(canvas,new_height,new_width):
         new_node[0] = new_width
         new_node[1] = new_height
         new_node[2] = new_angle
@@ -103,7 +112,9 @@ def action_rotate_negative_thirty_degrees(node, canvas, visited, step):
     new_width = round(new_node[0] + step * np.cos(np.deg2rad(new_angle)))*2/2
     new_height = round(new_node[1] + step * np.sin(np.deg2rad(new_angle)))*2/2
 
-    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and is_within_obstacle(canvas,new_height,new_width) :
+    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and \
+        (round(new_width)>0 and round(new_width)<canvas.shape[1]) and \
+        is_within_obstacle(canvas,new_height,new_width) :
         new_node[0] = new_width
         new_node[1] = new_height
         new_node[2] = new_angle
@@ -151,7 +162,9 @@ def action_rotate_positive_thirty_degrees(node, canvas, visited, step):
     new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
     new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
 
-    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and (is_within_obstacle(canvas,new_height,new_width)) :
+    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and \
+        (round(new_width)>0 and round(new_width)<canvas.shape[1]) and \
+        (is_within_obstacle(canvas,new_height,new_width)) :
         new_node[0] = new_width
         new_node[1] = new_height
         new_node[2] = new_angle
@@ -175,7 +188,9 @@ def action_rotate_positive_sixty_degrees(node, canvas, visited, step):    # Loca
     new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
     new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
 
-    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and (is_within_obstacle(canvas,new_height,new_width)) :
+    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and \
+        (round(new_width)>0 and round(new_width)<canvas.shape[1]) and \
+        (is_within_obstacle(canvas,new_height,new_width)) :
         new_node[0] = new_width
         new_node[1] = new_height
         new_node[2] = new_angle
@@ -291,7 +306,189 @@ def get_radius_and_clearance():
             break    
     return int(clearance),int(radius)
 
+def orientation(angle):
+    if angle < 0:
+        angle += 360
+    angle %= 360
 
+    return angle // g_angle
+
+def a_star(initial_state, goal_state, canvas, step_size):
+    """ this function perfoms the A* algorithm for a mobile robot to navigate the map 
+
+    
+    Args:
+        initial_state : the node where the robot spawns
+        goal_state : the node where the robot should navigate to 
+        canvas : the map in which the navigation is performed 
+    """
+    # store min cost of each node
+    cost_to_come_array = np.zeros((canvas.shape[0], canvas.shape[1], g_total_degree // g_angle))
+
+    # store parent node of each node
+    # parent_array = np.zeros((canvas.shape[0], canvas.shape[1], g_total_degree // g_angle))
+    parent_array_x = np.zeros((canvas.shape[0], canvas.shape[1], g_total_degree // g_angle))
+    parent_array_y = np.zeros((canvas.shape[0], canvas.shape[1], g_total_degree // g_angle))
+    
+    # store visited nodes
+    visited = np.zeros((canvas.shape[0]*2, canvas.shape[1]*2, g_total_degree // g_angle))
+    
+    open_list = [] # empty list representing the open list
+    closed_list = [] #  empty list representing the close list
+    # closed_list = {} # empty dict representing the closed list 
+    back_track_flag = False
+    iteration = 0
+    hq.heapify(open_list)
+    hq.heappush(open_list,[0, initial_state, initial_state])
+    print("Node exploration started")
+    while(len(open_list) > 0):
+        node = hq.heappop(open_list)
+        # closed_list[(node[2][0],node[2][1])] = node[1] 
+        present_cost = node[0]
+
+        # the node is within the threshold distance of the goal node
+        if euclidean_distance(list(node[2]), goal_state) <= g_goal_threshold:
+            back_track_flag = True
+            print("Finding the path...") 
+            break 
+        
+        # perfom the actions 
+        flag_valid, next_node, flag_visited = action_rotate_zero_degrees(node[2], canvas, visited, step_size)
+        # print(next_node)
+        # print(int(next_node[1]), int(next_node[0]), int(next_node[2]))
+        if(flag_valid):
+            cost_to_come = present_cost + step_size
+            cost = cost_to_come + euclidean_distance(next_node, goal_state)
+            # print('cost:', cost)
+            if flag_visited == False:
+                cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                hq.heappush(open_list, [cost, node[2], list(next_node)])
+                hq.heapify(open_list)
+            else:
+                previous_cost = cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]
+                if (cost < previous_cost):
+                    cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                    # parent_array[int(next_node[1])][int(next_node[0])][int(next_node[2])]  = node[2]
+                    parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                    parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                    hq.heappush(open_list, [cost, node[2], list(next_node)])
+                    hq.heapify(open_list)
+        
+        flag_valid, next_node, flag_visited = action_rotate_negative_thirty_degrees(node[2], canvas, visited, step_size)
+        # print(next_node)
+        if(flag_valid):
+            cost_to_come = present_cost + step_size
+            cost = cost_to_come + euclidean_distance(next_node, goal_state)
+            # print('cost:', cost)
+            if flag_visited == False:
+                cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                hq.heappush(open_list, [cost, node[2], list(next_node)])
+                hq.heapify(open_list)
+            else:
+                previous_cost = cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]
+                if (cost < previous_cost):
+                    cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                    # parent_array[int(next_node[1])][int(next_node[0])][int(next_node[2])]  = node[2]
+                    parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                    parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                    hq.heappush(open_list, [cost, node[2], list(next_node)])
+                    hq.heapify(open_list)
+
+        flag_valid, next_node, flag_visited = action_rotate_negative_sixty_degrees(node[2], canvas, visited, step_size)
+        # print(next_node)
+        if(flag_valid):
+            cost_to_come = present_cost + step_size
+            cost = cost_to_come + euclidean_distance(next_node, goal_state)
+            # print('cost:', cost)
+            if flag_visited == False:
+                cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                hq.heappush(open_list, [cost, node[2], list(next_node)])
+                hq.heapify(open_list)
+            else:
+                previous_cost = cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]
+                if (cost < previous_cost):
+                    cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                    # parent_array[int(next_node[1])][int(next_node[0])][int(next_node[2])]  = node[2]
+                    parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                    parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                    hq.heappush(open_list, [cost, node[2], list(next_node)])
+                    hq.heapify(open_list)
+
+        flag_valid, next_node, flag_visited = action_rotate_positive_thirty_degrees(node[2], canvas, visited, step_size)
+        # print(next_node)
+        if(flag_valid):
+            cost_to_come = present_cost + step_size
+            cost = cost_to_come + euclidean_distance(next_node, goal_state)
+            # print('cost:', cost)
+            if flag_visited == False:
+                cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                hq.heappush(open_list, [cost, node[2], list(next_node)])
+                hq.heapify(open_list)
+            else:
+                previous_cost = cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]
+                if (cost < previous_cost):
+                    cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                    # parent_array[int(next_node[1])][int(next_node[0])][int(next_node[2])]  = node[2]
+                    parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                    parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                    hq.heappush(open_list, [cost, node[2], list(next_node)])
+                    hq.heapify(open_list)
+        
+        flag_valid, next_node, flag_visited = action_rotate_positive_sixty_degrees(node[2], canvas, visited, step_size)
+        # print(next_node)
+        if(flag_valid):
+            cost_to_come = present_cost + step_size
+            cost = cost_to_come + euclidean_distance(next_node, goal_state)
+            # print('cost:', cost)
+            if flag_visited == False:
+                cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                hq.heappush(open_list, [cost, node[2], list(next_node)])
+                hq.heapify(open_list)
+            else:
+                previous_cost = cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]
+                if (cost < previous_cost):
+                    cost_to_come_array[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))] = cost
+                    # parent_array[int(next_node[1])][int(next_node[0])][int(next_node[2])]  = node[2]
+                    parent_array_x[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][0]
+                    parent_array_y[int(next_node[1])][int(next_node[0])][orientation(int(next_node[2]))]  = node[2][1]
+                    hq.heappush(open_list, [cost, node[2], list(next_node)])
+                    hq.heapify(open_list)
+        
+        hq.heapify(open_list)
+        iteration += 1
+    
+    if(back_track_flag):
+        #Call the backtrack function
+        # generate_path(initial_state,goal_state,closed_list,canvas)
+        print("Solved!!")
+
+    else:
+        print("Solution Cannot Be Found")
+
+    return
+
+def euclidean_distance(node, goal_node):
+    """ this function calculates a heuristic function by using Euclidean distance
+    
+    Args:
+        node: current node
+
+    Returns:
+        the distance between the goal node and current nodes
+    """
+    ctg = sqrt((goal_node[0] - node[0])**2 + (goal_node[1] - node[1])**2)
+
+    return ctg
 
 # ---------- MAIN FUNCTION ------------
 
@@ -302,14 +499,16 @@ if __name__ == '__main__':
     # make an empty canvas 
     canvas = np.ones((500,1200,3),dtype="uint8") 
     # specify the amount of clearance by which the obstacles are to be bloated
-    clearance , radius = get_radius_and_clearance()
+    # clearance , radius = get_radius_and_clearance()
+    clearance , radius = 5, 5
     # add the obstacles in the free space of the map, and add the clearance area around them 
     canvas = draw_obstacles_with_clearance(canvas,clearance) 
     cv2.imshow("Canvas",canvas)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
-    initial_state,goal_state ,step_size = validate_points(canvas) 
+    # initial_state,goal_state ,step_size = validate_points(canvas)
+    initial_state, goal_state ,step_size = [5, 5, 0], [200, 200, 30], 1 
     initial_state[1] = canvas.shape[0]-1 - initial_state[1]
     goal_state[1] = canvas.shape[0]-1 - goal_state[1]
     # to downscale the image to speed up the video 
@@ -319,7 +518,10 @@ if __name__ == '__main__':
     # initial_state = [int(x * scale_factor) for x in initial_state]
     # goal_state = [int(x * scale_factor) for x in goal_state]
     # # perform dijikstra's algorithm 
-    # dijkstra(initial_state,goal_state,canvas) 
+    # dijkstra(initial_state,goal_state,canvas)
+
+    # perform A* algorithm
+    a_star(initial_state, goal_state, canvas, step_size)
     # end the clock 
     end_time = time.time()
     cv2.waitKey(0)
