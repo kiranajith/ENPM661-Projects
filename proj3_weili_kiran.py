@@ -73,6 +73,10 @@ def draw_obstacles_with_clearance(canvas, clearance):
 
 #------------- ACTION FUNCTIONS ---------------
 
+def threshold(n):
+    res = round(n*2)/2
+    return res
+
 def action_rotate_zero_degrees(node, canvas, visited, step):    
     new_node = node.copy() # copy the current node avoid modifying the original
     new_angle = new_node[2] + 0    # add angle of rotation, 0 here 
@@ -81,8 +85,8 @@ def action_rotate_zero_degrees(node, canvas, visited, step):
         new_angle += 360 
     new_angle %= 360
 
-    new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))*2/2
-    new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))*2/2
+    new_width = threshold(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
+    new_height = threshold(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
 
     # if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and  (canvas[int(round(new_height))][int(round(new_width))][0]!=255)   :
     if (0 < round(new_height) < canvas.shape[0]) and \
@@ -109,8 +113,8 @@ def action_rotate_negative_thirty_degrees(node, canvas, visited, step):
     if new_angle < 0:
         new_angle += 360 
     new_angle %= 360
-    new_width = round(new_node[0] + step * np.cos(np.deg2rad(new_angle)))*2/2
-    new_height = round(new_node[1] + step * np.sin(np.deg2rad(new_angle)))*2/2
+    new_width = threshold(new_node[0] + step * np.cos(np.deg2rad(new_angle)))
+    new_height = threshold(new_node[1] + step * np.sin(np.deg2rad(new_angle)))
 
     if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and \
         (round(new_width)>0 and round(new_width)<canvas.shape[1]) and \
@@ -135,10 +139,12 @@ def action_rotate_negative_sixty_degrees(node, canvas, visited, step):
         new_angle += 360
     
     new_angle %= 360 
-    new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))*2/2
-    new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))*2/2
+    new_width = threshold(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
+    new_height = threshold(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
 
-    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and (round(new_width)>0 and round(new_width)<canvas.shape[1]) and (is_within_obstacle(canvas,new_height,new_width)) :
+    if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and \
+       (round(new_width)>0 and round(new_width)<canvas.shape[1]) and \
+       (is_within_obstacle(canvas,new_height,new_width)) :
         new_node[0] = new_width
         new_node[1] = new_height
         new_node[2] = new_angle
@@ -159,8 +165,8 @@ def action_rotate_positive_thirty_degrees(node, canvas, visited, step):
     if new_angle < 0:
         new_angle += 360 
     new_angle %= 360
-    new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
-    new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
+    new_width = threshold(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
+    new_height = threshold(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
 
     if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and \
         (round(new_width)>0 and round(new_width)<canvas.shape[1]) and \
@@ -180,13 +186,13 @@ def action_rotate_positive_thirty_degrees(node, canvas, visited, step):
 
 def action_rotate_positive_sixty_degrees(node, canvas, visited, step):    # Local angles
     new_node = node.copy()
-    new_angle = new_node[2] - 60    # Angle in Cartesian System
+    new_angle = new_node[2] - 60    
 
     if new_angle < 0:
         new_angle += 360
     new_angle %= 360
-    new_width = round(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
-    new_height = round(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
+    new_width = threshold(new_node[0] + step*np.cos(np.deg2rad(new_angle)))
+    new_height = threshold(new_node[1] + step*np.sin(np.deg2rad(new_angle)))
 
     if (round(new_height)>0 and round(new_height)<canvas.shape[0]) and \
         (round(new_width)>0 and round(new_width)<canvas.shape[1]) and \
@@ -194,7 +200,7 @@ def action_rotate_positive_sixty_degrees(node, canvas, visited, step):    # Loca
         new_node[0] = new_width
         new_node[1] = new_height
         new_node[2] = new_angle
-
+            
         if(visited[int(new_height*2)][int(new_width*2)][int(new_angle/30)] == 1):
             return True, new_node,True
         else:
