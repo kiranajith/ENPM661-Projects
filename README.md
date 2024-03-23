@@ -2,7 +2,7 @@
 ## Implementation of A* algorithm on a mobile robot 
 
 ### Problem 
-Given a 2D map on with obstacles, the task is to perform A* algorithm on a mobile robot to find an optimal path between the start node and the goal node.
+Given a 2D map with obstacles, the task is to perform A* algorithm on a mobile robot to find an optimal path between the start node and the goal node.
 
 ### Map
 * Given map 
