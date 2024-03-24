@@ -23,8 +23,7 @@ def is_within_obstacle(canvas,new_height,new_width):
         return False
     else:
         return True
-
-def draw_obstacles(canvas):   
+def draw_obstacles(canvas,robot_radius,clearance):   
     """ this function is used to pbstacles in the map
     the obstacles are marked in white pixels
 
@@ -34,6 +33,8 @@ def draw_obstacles(canvas):
     Returns:
         : canvas with obstacles
     """
+    offset = robot_radius + clearance  # Total enlargement of obstacles
+    height, width, _ = canvas.shape 
     height,width,_ = canvas.shape 
     print('Dimensions of the canvas')
     print('------------------------')
@@ -41,6 +42,22 @@ def draw_obstacles(canvas):
     for i in range(width): # traverse through the width of the canvas 
         for j in range(height): # traverse through the height of the canvas
             # model the left-most rectangle
+            # ----- offset -----------
+            if(i-100+offset>=0 and i-175-offset<=0 and height-j-100+offset>=0 and height-j-500-offset<0):
+                canvas[j][i] = [0,0,255] 
+            # model the 2nd rectangle
+            if(i-275+offset>=0 and i-350-offset<=0 and height-j+offset>=0 and height-j-425-offset<=0):
+                canvas[j][i] = [0,0,255]
+            
+            # model the C-shaped figure 
+            if(i-900+offset>=0 and i-1020-offset<=0 and height-j-375+offset>=0 and height-j-450-offset<=0) or (i-900+offset>=0 and i-1020-offset<=0 and height-j-50+offset>=0 and height-j-125-offset<0) or (i-1020+offset>=0 and i-1100-offset<=0 and height-j-50+offset>=0 and height-j-450-offset<=0):
+                canvas[j][i] = [0,0,255]
+
+            # model the hexagon 
+            if(i+offset>=500 and i-offset<=800) and (j-offset<=(0.5*i)+75) and (j+offset>=(0.5*i)-225) and  (j-offset<=(-0.5*i)+725) and (j+offset>=(-0.5*i)+425): 
+                canvas[j][i] = [0,0,255] 
+
+            # --------- obstacle space --------
             if(i-100>=0 and i-175<=0 and height-j-100>=0 and height-j-500<0):
                 canvas[j][i] = [255,255,255] 
             # model the 2nd rectangle
@@ -53,8 +70,9 @@ def draw_obstacles(canvas):
 
             # model the hexagon 
             if(i>=500 and i<=800) and (j<=(0.5*i)+75) and (j>=(0.5*i)-225) and  (j<=(-0.5*i)+725) and (j>=(-0.5*i)+425): 
-                canvas[j][i] = [255,255,255]            
+                canvas[j][i] = [255,255,255]           
     return canvas
+
 
 def draw_obstacles_with_clearance(canvas, clearance):
     """ this function is used to draw a clearance area around the obstacles
@@ -611,7 +629,7 @@ if __name__ == '__main__':
     # clearance , radius = get_radius_and_clearance()
     clearance , radius = 5, 5
     # add the obstacles in the free space of the map, and add the clearance area around them 
-    canvas = draw_obstacles_with_clearance(canvas,clearance) 
+    canvas = draw_obstacles(canvas,radius,clearance) 
     cv2.imshow("Canvas",canvas)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
