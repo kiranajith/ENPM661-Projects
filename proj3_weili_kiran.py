@@ -17,6 +17,7 @@ g_canvas_width = 600
 g_sacling_canvas_height = 250 * g_scaling
 g_sacling_canvas_width = 600 * g_scaling
 g_initial_parent = -1
+g_weighted_a_star = 1
 
 def is_within_obstacle(canvas, new_height, new_width):
     """
@@ -130,6 +131,8 @@ def action_rotate_zero_degrees(node, canvas, visited, step):
 
         if(visited[new_height][new_width][new_angle//g_angle] == 1):
             return True, new_node, True
+        elif(visited[new_height][new_width][new_angle//g_angle] == 2):
+            return False, new_node, False
         else: # mark the node as visited 
             visited[new_height][new_width][new_angle//g_angle] = 1
             return True, new_node, False
@@ -157,6 +160,8 @@ def action_rotate_negative_thirty_degrees(node, canvas, visited, step):
         
         if(visited[new_height][new_width][new_angle//g_angle] == 1):
             return True, new_node, True
+        elif(visited[new_height][new_width][new_angle//g_angle] == 2):
+            return False, new_node, False
         else:
             visited[new_height][new_width][new_angle//g_angle] = 1
             return True, new_node, False
@@ -183,6 +188,8 @@ def action_rotate_negative_sixty_degrees(node, canvas, visited, step):
 
         if(visited[new_height][new_width][new_angle//g_angle] == 1):
             return True, new_node,True
+        elif(visited[new_height][new_width][new_angle//g_angle] == 2):
+            return False, new_node, False
         else:
             visited[new_height][new_width][new_angle//g_angle] = 1
             return True, new_node, False
@@ -209,6 +216,8 @@ def action_rotate_positive_thirty_degrees(node, canvas, visited, step):
 
         if(visited[new_height][new_width][new_angle//g_angle] == 1):
             return True, new_node, True
+        elif(visited[new_height][new_width][new_angle//g_angle] == 2):
+            return False, new_node, False
         else:
             visited[new_height][new_width][new_angle//g_angle] = 1
             return True, new_node, False
@@ -235,6 +244,8 @@ def action_rotate_positive_sixty_degrees(node, canvas, visited, step):    # Loca
             
         if(visited[new_height][new_width][new_angle//g_angle] == 1):
             return True, new_node,True
+        elif(visited[new_height][new_width][new_angle//g_angle] == 2):
+            return False, new_node, False
         else:
             visited[new_height][new_width][new_angle//g_angle] = 1
             return True, new_node,False
@@ -259,6 +270,7 @@ def validate_points(canvas):
         # check if each entered point is within the free space of the map 
         while True:
             state = input(" Start node X : ")
+            state = int(state) * g_scaling
             if(int(state)<0 or int(state)>canvas.shape[1]-1):
                 print("Retry with a different X :")
                 continue
@@ -267,6 +279,7 @@ def validate_points(canvas):
                 break
         while True:
             state = input(" Start node Y : ")
+            state = int(state) * g_scaling
             if(int(state)<0 or int(state)>canvas.shape[0]-1):
                 print("Retry with a different Y :")
                 continue
@@ -281,6 +294,7 @@ def validate_points(canvas):
     while True:
         while True:
             state = input("Goal node X : ")
+            state = int(state) * g_scaling
             if(int(state)<0 or int(state)>canvas.shape[1]-1):
                 print("Retry with a different X :")
                 continue
@@ -289,6 +303,7 @@ def validate_points(canvas):
                 break
         while True:
             state = input("Goal node Y : ")
+            state = int(state) * g_scaling
             if(int(state)<0 or int(state)>canvas.shape[0]-1):
                 print("Retry with a different Y :")
                 continue
@@ -365,11 +380,11 @@ def a_star(initial_state, goal_state, canvas, step_size):
 
     # scaling initial node and goal node
     scaling_init_state = initial_state.copy()
-    scaling_init_state[0] = initial_state[0] * g_scaling
-    scaling_init_state[1] = initial_state[1] * g_scaling
+    # scaling_init_state[0] = initial_state[0] * g_scaling
+    # scaling_init_state[1] = initial_state[1] * g_scaling
     scaling_goal_state = goal_state.copy()
-    scaling_goal_state[0] = goal_state[0] * g_scaling
-    scaling_goal_state[1] = goal_state[1] * g_scaling
+    # scaling_goal_state[0] = goal_state[0] * g_scaling
+    # scaling_goal_state[1] = goal_state[1] * g_scaling
     print(initial_state, goal_state, scaling_init_state, scaling_goal_state)
     print('dis: ', (euclidean_distance(scaling_init_state, scaling_goal_state)))
 
@@ -413,6 +428,10 @@ def a_star(initial_state, goal_state, canvas, step_size):
         
     
         present_cost = node[0]
+        
+        if (visited[node[1][1]][node[1][0]][orientation(node[1][2])] == 2):
+            fileNodes.writelines('Closed' + str(node) + '\n')
+            continue
         fileNodes.writelines('Curr' + str(node) + '\n')
         # print(node, cost_to_come_array[node[1][1]][node[1][0]][orientation(node[1][2])])
         # print(parent_track[node[1][1]][node[1][0]][orientation(node[1][2])])
@@ -431,7 +450,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
         # print(next_node)
         if(flag_valid):
             cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(node[1][2])] + step_size
-            cost = cost_to_come + euclidean_distance(next_node, scaling_goal_state)
+            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
             fileNodes.writelines('0: ' + str(cost) + ' ' + str(next_node) + '\n')
             # print('cost:', cost)
             if flag_visited == False:
@@ -464,7 +483,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
 
         if(flag_valid):
             cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(int(node[1][2]))] + step_size
-            cost = cost_to_come + euclidean_distance(next_node, scaling_goal_state)
+            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
             fileNodes.writelines('-1: ' + str(cost) + ' ' + str(next_node) + '\n')
             # print('cost:', cost)
             if flag_visited == False:
@@ -497,7 +516,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
 
         if(flag_valid):
             cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(int(node[1][2]))] + step_size
-            cost = cost_to_come + euclidean_distance(next_node, scaling_goal_state)
+            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
             fileNodes.writelines('-2: ' + str(cost) + ' ' + str(next_node) + '\n')
             # print('cost:', cost)
             if flag_visited == False:
@@ -530,7 +549,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
 
         if(flag_valid):
             cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(int(node[1][2]))] + step_size
-            cost = cost_to_come + euclidean_distance(next_node, scaling_goal_state)
+            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
             fileNodes.writelines('1: ' + str(cost) + ' ' + str(next_node) + '\n')
             # print('cost:', cost)
             if flag_visited == False:
@@ -563,7 +582,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
 
         if(flag_valid):
             cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(int(node[1][2]))] + step_size
-            cost = cost_to_come + euclidean_distance(next_node, scaling_goal_state)
+            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
             fileNodes.writelines('2: ' + str(cost) + ' ' + str(next_node) + '\n')
             # print('cost:', cost)
             if flag_visited == False:
@@ -591,6 +610,8 @@ def a_star(initial_state, goal_state, canvas, step_size):
                     #                                                                                         orientation(node[1][2])], 
                     #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
         
+        # mark the current node as in the closed list. 0: unexplored 1: visited; 2: closed
+        visited[node[1][1]][node[1][0]][orientation(node[1][2])] = 2
         hq.heapify(open_list)
         iteration += 1
     
@@ -624,6 +645,10 @@ def euclidean_distance(node, goal_node):
     # dis = sqrt((goal_node[0] - node[0])**2 + (goal_node[1] - node[1])**2)
 
     return dis
+
+def weighted_cost_to_go(dis):
+    return dis*g_weighted_a_star
+
 
 # def generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta):
 #     path_x, path_y, path_theta = [], [], []
@@ -707,8 +732,8 @@ if __name__ == '__main__':
     # validate the initial and final points before perfoming the algorithm
     initial_state,goal_state ,step_size = validate_points(canvas)
     # initial_state, goal_state ,step_size = [5, 5, 0], [50, 50, 30], 5 
-    initial_state[1] = g_canvas_height-1 - initial_state[1]
-    goal_state[1] = g_canvas_height-1 - goal_state[1]
+    initial_state[1] = g_sacling_canvas_height-1 - initial_state[1]
+    goal_state[1] = g_sacling_canvas_height-1 - goal_state[1]
     # to downscale the image to speed up the video 
     # scale_factor = 0.5  
     # canvas = downsample_image(canvas, scale_factor=scale_factor)
