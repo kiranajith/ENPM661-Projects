@@ -647,64 +647,47 @@ def euclidean_distance(node, goal_node):
 #     return path_x, path_y, path_theta
 
 def generate_path(initial_state, final_state, closed_list, canvas):
-    # Define the codec and create VideoWriter object
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    output = cv2.VideoWriter('node_exploration.avi', fourcc, 50, (canvas.shape[1], canvas.shape[0]))
 
-    print("Total Number of Nodes Explored =", len(closed_list))
-
-    # Initial key to start backtracking from the goal state
-    parent_node_key = (final_state[0], final_state[1], final_state[2])
-
-    path = [final_state]  # Initialize path with the goal state
-
-    # Visualize all explored nodes
-    for key in closed_list.keys():
-        node_pos = key[:2]  # Get x, y position
-        cv2.circle(canvas, (int(key[0]), int(key[1])), 2, (0, 255, 0), -1)  # Draw explored node
-        cv2.circle(canvas,(int(node_pos[0]),int(node_pos[1])),2,(0,255,0),-1)
-        canvas = cv2.arrowedLine(canvas, (int(node_pos[0]),int(node_pos[1])), (int(key[0]),int(key[1])), (0,0,255), 1, tipLength = 0.2)
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')    # Creating video writer to generate a video.
+    output = cv2.VideoWriter('node_exploration.avi',fourcc,500,(canvas.shape[1],canvas.shape[0]))
+    
+    print("Total Number of Nodes Explored = ",len(closed_list)) 
+    
+    keys = closed_list.keys()    # Returns all the nodes that are explored
+    path = []    # Stack to store the path from start to goal
+    
+    # Visualizing the explored nodes
+    keys = list(keys)
+    for key in keys:
+        current_node = closed_list[tuple(key)]
+        cv2.circle(canvas,(int(key[0]),int(key[1])),2,(0,0,255),-1)
+        cv2.circle(canvas,(int(current_node[0]),int(current_node[1])),2,(0,0,255),-1)
+        canvas = cv2.arrowedLine(canvas, (int(current_node[0]),int(current_node[1])), (int(key[0]),int(key[1])), (0,255,0), 1, tipLength = 0.2)
         cv2.imshow("Visualization of node exploration",canvas)
         cv2.waitKey(1)
         output.write(canvas)
 
-    # Backtracking from goal to start
-    while parent_node_key in closed_list and parent_node_key != tuple(initial_state):
-        parent_node_info = closed_list[parent_node_key]  # Get parent node information (x, y, theta)
-        path.append(parent_node_info)  # Append parent node to path
+    parent_node = closed_list[tuple(final_state)]
+    path.append(final_state)    # Appending the final state because of the loop starting condition
+    
+    while(parent_node != initial_state):
+        path.append(parent_node)
+        parent_node = closed_list[tuple(parent_node)]
+    
+    path.append(initial_state)    # Appending the initial state because of the loop breaking condition
+    print("\nOptimal Path: ")
+    start_node = path.pop()
+    print(start_node)
 
-        # Drawing the path
-        # cv2.arrowedLine(canvas, 
-        #                 (int(parent_node_key[0]), int(parent_node_key[1])), 
-        #                 (int(parent_node_info[0]), int(parent_node_info[1])), 
-        #                 (255, 0, 0), 1, tipLength=0.5)
-        # cv2.imshow("Path Finding", canvas)
-        # output.write(canvas)  # Write frame to video
-        # cv2.waitKey(50)
-
-        # Update parent_node_key to parent for next iteration
-        parent_node_key = (parent_node_info[0], parent_node_info[1], parent_node_info[2])
-
-    # Ensure the start state is in the path
-    if path[-1] != initial_state:
-        path.append(initial_state)
-
-    # # Optional: Visualize the final path in a different color
-    for i in range(len(path) - 1):
-        cv2.line(canvas, 
-                 (int(path[i][0]), int(path[i][1])), 
-                 (int(path[i + 1][0]), int(path[i + 1][1])), 
-                 (0, 255, 0), 2)
-        output.write(canvas)  # Write frame to video
-
-    # Release the video writer and close windows
+    # Visualizing the optimal path
+    while(len(path) > 0):
+        path_node = path.pop()
+        cv2.line(canvas,(int(start_node[0]),int(start_node[1])),(int(path_node[0]),int(path_node[1])),(255,0,196),5)
+        print(path_node)
+        start_node = path_node.copy()
+        output.write(canvas)
+    
     output.release()
-    cv2.destroyAllWindows()
-
-    print("Path has been generated and visualized.")
-# !!!!!!!!!!!!!!!!!!!!! ^^^^^^^^^^
-
-#     output.release()
 # ---------- MAIN FUNCTION ------------
 
 if __name__ == '__main__':
