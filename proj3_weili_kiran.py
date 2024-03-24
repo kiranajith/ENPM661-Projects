@@ -16,6 +16,7 @@ g_canvas_height = 250
 g_canvas_width = 600
 g_sacling_canvas_height = 250 * g_scaling
 g_sacling_canvas_width = 600 * g_scaling
+g_initial_parent = -1
 
 def is_within_obstacle(canvas,new_height,new_width):
     if canvas[int(round(new_height))][int(round(new_width))][0]==255:
@@ -321,6 +322,8 @@ def get_radius_and_clearance():
     return int(clearance),int(radius)
 
 def orientation(angle):
+    if angle < 0:
+        angle += 360
     return angle // g_angle
 
 def a_star(initial_state, goal_state, canvas, step_size):
@@ -346,14 +349,18 @@ def a_star(initial_state, goal_state, canvas, step_size):
     print('dis: ', (euclidean_distance(scaling_init_state, scaling_goal_state)))
 
     # store parent node of each node
-    # parent_array = np.zeros((canvas.shape[0], canvas.shape[1], g_total_degree // g_angle))
-    # parent_array_x = np.zeros((canvas.shape[0], canvas.shape[1], g_total_degree // g_angle))
-    # parent_array_y = np.zeros((canvas.shape[0], canvas.shape[1], g_total_degree // g_angle))
+    # parent_track = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+    # parent_track[scaling_init_state[1]][scaling_init_state[0]][orientation(scaling_init_state[2])] = g_initial_parent
+    parent_track_x = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+    parent_track_y = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+    parent_track_theta = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+    parent_track_x[scaling_init_state[1]][scaling_init_state[0]][orientation(scaling_init_state[2])] = g_initial_parent
     
     # store visited nodes
     visited = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
     
     fileNodes = open("Nodes.txt", "w")
+    fileParents = open("Parents.txt", "w")
     open_list = [] # empty list representing the open list 
     back_track_flag = False
     iteration = 0
@@ -365,10 +372,13 @@ def a_star(initial_state, goal_state, canvas, step_size):
         present_cost = node[0]
         fileNodes.writelines('Curr' + str(node) + '\n')
         # print(node, cost_to_come_array[node[1][1]][node[1][0]][orientation(node[1][2])])
+        # print(parent_track[node[1][1]][node[1][0]][orientation(node[1][2])])
+        # fileNodes.writelines('Curr' + str(parent_track) + '\n')
 
         # the node is within the threshold distance of the goal node
-        if euclidean_distance(list(node[1]), scaling_goal_state) <= g_goal_threshold:
+        if (euclidean_distance(list(node[1]), scaling_goal_state) <= g_goal_threshold) and (node[1][2] == scaling_goal_state[2]):
             back_track_flag = True
+            last_node = list(node[1])
             print("Finding the path...") 
             break 
         
@@ -385,12 +395,26 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                #                                                                                             node[1][0], 
+                #                                                                                             orientation(node[1][2])], 
+                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
             else:
                 previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
                 if (cost_to_come < previous_cost):
                     cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                     hq.heappush(open_list, [cost, list(next_node)])
                     hq.heapify(open_list)
+                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                    #                                                                                         node[1][0], 
+                    #                                                                                         orientation(node[1][2])], 
+                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
         
         flag_valid, next_node, flag_visited = action_rotate_negative_thirty_degrees(node[1], canvas, visited, step_size)
         # print(next_node)
@@ -404,12 +428,26 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                #                                                                                             node[1][0], 
+                #                                                                                             orientation(node[1][2])], 
+                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
             else:
                 previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
                 if (cost_to_come < previous_cost):
                     cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                     hq.heappush(open_list, [cost, list(next_node)])
                     hq.heapify(open_list)
+                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                    #                                                                                         node[1][0], 
+                    #                                                                                         orientation(node[1][2])], 
+                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
 
         flag_valid, next_node, flag_visited = action_rotate_negative_sixty_degrees(node[1], canvas, visited, step_size)
         # print(next_node)
@@ -423,12 +461,26 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                #                                                                                             node[1][0], 
+                #                                                                                             orientation(node[1][2])], 
+                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
             else:
                 previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
                 if (cost_to_come < previous_cost):
                     cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                     hq.heappush(open_list, [cost, list(next_node)])
                     hq.heapify(open_list)
+                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                    #                                                                                         node[1][0], 
+                    #                                                                                         orientation(node[1][2])], 
+                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
 
         flag_valid, next_node, flag_visited = action_rotate_positive_thirty_degrees(node[1], canvas, visited, step_size)
         # print(next_node)
@@ -442,12 +494,26 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                #                                                                                             node[1][0], 
+                #                                                                                             orientation(node[1][2])], 
+                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
             else:
                 previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
                 if (cost_to_come < previous_cost):
                     cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                     hq.heappush(open_list, [cost, list(next_node)])
                     hq.heapify(open_list)
+                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                    #                                                                                         node[1][0], 
+                    #                                                                                         orientation(node[1][2])], 
+                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
         
         flag_valid, next_node, flag_visited = action_rotate_positive_sixty_degrees(node[1], canvas, visited, step_size)
         # print(next_node)
@@ -461,21 +527,37 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                #                                                                                             node[1][0], 
+                #                                                                                             orientation(node[1][2])], 
+                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
             else:
                 previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
                 if (cost_to_come < previous_cost):
                     cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                     hq.heappush(open_list, [cost, list(next_node)])
                     hq.heapify(open_list)
+                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
+                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
+                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
+                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
+                    #                                                                                         node[1][0], 
+                    #                                                                                         orientation(node[1][2])], 
+                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
         
         hq.heapify(open_list)
         iteration += 1
     
     if(back_track_flag):
-        #Call the backtrack function
-        # generate_path(initial_state,goal_state,closed_list,canvas)
         print("Solved!!")
-
+        #Call the backtrack function
+        # path = generate_path(last_node, parent_track)
+        path_x, path_y, path_theta = generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta)
+        # print('Optimal path: ', path_x)
+        
     else:
         print("Solution Cannot Be Found")
     
@@ -497,6 +579,26 @@ def euclidean_distance(node, goal_node):
 
     return dis
 
+def generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta):
+    path_x, path_y, path_theta = [], [], []
+    # print(last_node, last_node[0], last_node[1], last_node[2], type(last_node))
+    # print(last_node, parent_track[last_node[1]][last_node[0]][orientation(last_node[2])])
+    while parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])] != g_initial_parent:
+        pre_x = parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])]
+        pre_y = parent_track_y[last_node[1]][last_node[0]][orientation(last_node[2])]
+        pre_theta = parent_track_theta[last_node[1]][last_node[0]][orientation(last_node[2])]
+        # last_node = np.unravel_index(int(parent_track[last_node[1]][last_node[0]][orientation(last_node[2])]), 
+        #                              (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+        print(last_node, pre_x, pre_y, pre_theta)
+
+        last_node[0] = int(pre_x)
+        last_node[1] = int(pre_y)
+        last_node[2] = int(pre_theta)
+        path_x.append(last_node[0])
+        path_y.append(last_node[1])
+        path_theta.append(last_node[2])
+
+    return path_x, path_y, path_theta
 # ---------- MAIN FUNCTION ------------
 
 if __name__ == '__main__':
@@ -515,7 +617,7 @@ if __name__ == '__main__':
     cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
     # initial_state,goal_state ,step_size = validate_points(canvas)
-    initial_state, goal_state ,step_size = [5, 5, 0], [60, 60, 30], 10 
+    initial_state, goal_state ,step_size = [5, 5, 0], [50, 50, 30], 5 
     initial_state[1] = g_canvas_height-1 - initial_state[1]
     goal_state[1] = g_canvas_height-1 - goal_state[1]
     # to downscale the image to speed up the video 
