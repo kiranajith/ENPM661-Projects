@@ -415,7 +415,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
         iteration += 1
     
     if back_track_flag:
-        # Assume generate_path function is defined elsewhere
+        # call backtrack function
         generate_path(initial_state, goal_state, closed_list, canvas)
         print("Solved!!")
     else:
