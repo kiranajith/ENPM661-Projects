@@ -18,8 +18,13 @@ g_sacling_canvas_height = 250 * g_scaling
 g_sacling_canvas_width = 600 * g_scaling
 g_initial_parent = -1
 
-def is_within_obstacle(canvas,new_height,new_width):
-    if canvas[int(round(new_height))][int(round(new_width))][0]==255:
+def is_within_obstacle(canvas, new_height, new_width):
+    """
+    Checks if the given position is within an obstacle or the clearance zone.
+    """
+    # Check if within obstacle or clearance zone (red pixels indicating clearance)
+    pixel = canvas[int(round(new_height))][int(round(new_width))]
+    if pixel[0] == 255 or pixel[2] == 255:  # Obstacle (white) or clearance (red)
         return False
     else:
         return True
@@ -354,6 +359,8 @@ def a_star(initial_state, goal_state, canvas, step_size):
         canvas : the map in which the navigation is performed 
     """
     # store min cost of each node
+    closed_list = {}
+
     cost_to_come_array = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
 
     # scaling initial node and goal node
@@ -387,6 +394,24 @@ def a_star(initial_state, goal_state, canvas, step_size):
     print("Node exploration started")
     while(len(open_list) > 0):
         node = hq.heappop(open_list)
+        current_cost, current_node = node[0], node[1]
+        current_key = (current_node[0], current_node[1], current_node[2])  # Tuple key: (x, y, theta)
+
+        canvas_vis = canvas.copy()
+        # cv2.circle(canvas_vis, (int(current_node[0]), int(current_node[1])), 3, (0, 255, 0), -1)
+        # cv2.imshow("Path Planning Visualization", canvas_vis)
+        # cv2.waitKey(1) 
+        if current_key not in closed_list:
+            closed_list[current_key] = (parent_track_x[current_node[1]][current_node[0]][orientation(current_node[2])],
+                                        parent_track_y[current_node[1]][current_node[0]][orientation(current_node[2])],
+                                        parent_track_theta[current_node[1]][current_node[0]][orientation(current_node[2])])
+        # node_key = (node[1][0], node[1][1], node[1][2])  # Example key using x, y, and theta
+        # # Once a node is popped from the open list, it is considered in the closed list
+        # closed_list[node_key] = parent_track_x[node[1][1]][node[1][0]][orientation(node[1][2])], \
+        #                         parent_track_y[node[1][1]][node[1][0]][orientation(node[1][2])], \
+        #                         parent_track_theta[node[1][1]][node[1][0]][orientation(node[1][2])]
+        
+    
         present_cost = node[0]
         fileNodes.writelines('Curr' + str(node) + '\n')
         # print(node, cost_to_come_array[node[1][1]][node[1][0]][orientation(node[1][2])])
@@ -573,7 +598,10 @@ def a_star(initial_state, goal_state, canvas, step_size):
         print("Solved!!")
         #Call the backtrack function
         # path = generate_path(last_node, parent_track)
-        path_x, path_y, path_theta = generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta)
+        # path_x, path_y, path_theta = generate_path(initial_state,last_node,closed_list,canvas)
+        generate_path(initial_state,last_node,closed_list,canvas)
+        # path = generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta, canvas)
+        # print("path: ", path )
         # print('Optimal path: ', path_x)
         
     else:
@@ -597,26 +625,86 @@ def euclidean_distance(node, goal_node):
 
     return dis
 
-def generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta):
-    path_x, path_y, path_theta = [], [], []
-    # print(last_node, last_node[0], last_node[1], last_node[2], type(last_node))
-    # print(last_node, parent_track[last_node[1]][last_node[0]][orientation(last_node[2])])
-    while parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])] != g_initial_parent:
-        pre_x = parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])]
-        pre_y = parent_track_y[last_node[1]][last_node[0]][orientation(last_node[2])]
-        pre_theta = parent_track_theta[last_node[1]][last_node[0]][orientation(last_node[2])]
-        # last_node = np.unravel_index(int(parent_track[last_node[1]][last_node[0]][orientation(last_node[2])]), 
-        #                              (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-        print(last_node, pre_x, pre_y, pre_theta)
+# def generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta):
+#     path_x, path_y, path_theta = [], [], []
+#     # print(last_node, last_node[0], last_node[1], last_node[2], type(last_node))
+#     # print(last_node, parent_track[last_node[1]][last_node[0]][orientation(last_node[2])])
+#     while parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])] != g_initial_parent:
+#         pre_x = parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])]
+#         pre_y = parent_track_y[last_node[1]][last_node[0]][orientation(last_node[2])]
+#         pre_theta = parent_track_theta[last_node[1]][last_node[0]][orientation(last_node[2])]
+#         # last_node = np.unravel_index(int(parent_track[last_node[1]][last_node[0]][orientation(last_node[2])]), 
+#         #                              (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+#         print(last_node, pre_x, pre_y, pre_theta)
 
-        last_node[0] = int(pre_x)
-        last_node[1] = int(pre_y)
-        last_node[2] = int(pre_theta)
-        path_x.append(last_node[0])
-        path_y.append(last_node[1])
-        path_theta.append(last_node[2])
+#         last_node[0] = int(pre_x)
+#         last_node[1] = int(pre_y)
+#         last_node[2] = int(pre_theta)
+#         path_x.append(last_node[0])
+#         path_y.append(last_node[1])
+#         path_theta.append(last_node[2])
 
-    return path_x, path_y, path_theta
+#     return path_x, path_y, path_theta
+
+def generate_path(initial_state, final_state, closed_list, canvas):
+    # Define the codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    output = cv2.VideoWriter('node_exploration.avi', fourcc, 50, (canvas.shape[1], canvas.shape[0]))
+
+    print("Total Number of Nodes Explored =", len(closed_list))
+
+    # Initial key to start backtracking from the goal state
+    parent_node_key = (final_state[0], final_state[1], final_state[2])
+
+    path = [final_state]  # Initialize path with the goal state
+
+    # Visualize all explored nodes
+    for key in closed_list.keys():
+        node_pos = key[:2]  # Get x, y position
+        cv2.circle(canvas, (int(key[0]), int(key[1])), 2, (0, 255, 0), -1)  # Draw explored node
+        cv2.circle(canvas,(int(node_pos[0]),int(node_pos[1])),2,(0,255,0),-1)
+        canvas = cv2.arrowedLine(canvas, (int(node_pos[0]),int(node_pos[1])), (int(key[0]),int(key[1])), (0,0,255), 1, tipLength = 0.2)
+        cv2.imshow("Visualization of node exploration",canvas)
+        cv2.waitKey(1)
+        output.write(canvas)
+
+    # Backtracking from goal to start
+    while parent_node_key in closed_list and parent_node_key != tuple(initial_state):
+        parent_node_info = closed_list[parent_node_key]  # Get parent node information (x, y, theta)
+        path.append(parent_node_info)  # Append parent node to path
+
+        # Drawing the path
+        # cv2.arrowedLine(canvas, 
+        #                 (int(parent_node_key[0]), int(parent_node_key[1])), 
+        #                 (int(parent_node_info[0]), int(parent_node_info[1])), 
+        #                 (255, 0, 0), 1, tipLength=0.5)
+        # cv2.imshow("Path Finding", canvas)
+        # output.write(canvas)  # Write frame to video
+        # cv2.waitKey(50)
+
+        # Update parent_node_key to parent for next iteration
+        parent_node_key = (parent_node_info[0], parent_node_info[1], parent_node_info[2])
+
+    # Ensure the start state is in the path
+    if path[-1] != initial_state:
+        path.append(initial_state)
+
+    # # Optional: Visualize the final path in a different color
+    for i in range(len(path) - 1):
+        cv2.line(canvas, 
+                 (int(path[i][0]), int(path[i][1])), 
+                 (int(path[i + 1][0]), int(path[i + 1][1])), 
+                 (0, 255, 0), 2)
+        output.write(canvas)  # Write frame to video
+
+    # Release the video writer and close windows
+    output.release()
+    cv2.destroyAllWindows()
+
+    print("Path has been generated and visualized.")
+# !!!!!!!!!!!!!!!!!!!!! ^^^^^^^^^^
+
+#     output.release()
 # ---------- MAIN FUNCTION ------------
 
 if __name__ == '__main__':
@@ -630,12 +718,12 @@ if __name__ == '__main__':
     clearance , radius = 5, 5
     # add the obstacles in the free space of the map, and add the clearance area around them 
     canvas = draw_obstacles(canvas,radius,clearance) 
-    cv2.imshow("Canvas",canvas)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.imshow("Canvas",canvas)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
-    # initial_state,goal_state ,step_size = validate_points(canvas)
-    initial_state, goal_state ,step_size = [5, 5, 0], [50, 50, 30], 5 
+    initial_state,goal_state ,step_size = validate_points(canvas)
+    # initial_state, goal_state ,step_size = [5, 5, 0], [50, 50, 30], 5 
     initial_state[1] = g_canvas_height-1 - initial_state[1]
     goal_state[1] = g_canvas_height-1 - goal_state[1]
     # to downscale the image to speed up the video 
@@ -651,6 +739,7 @@ if __name__ == '__main__':
     a_star(initial_state, goal_state, canvas, step_size)
     # end the clock 
     end_time = time.time()
+    cv2.imshow("Canvas",canvas)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     # calculate the total runtime 
