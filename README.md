@@ -39,3 +39,4 @@ Alternatively, run the a_star_weili_kiran.py in the IDE of your choice
 
 ## Visualizing the output
 A window pops up showing the explored nodes and finally the generated path. A video file will also be created which shows the same.
+![Screenshot 2024-03-24 at 10 54 30 PM](https://github.com/kiranajith/ENPM661-Projects/assets/63303617/00957b11-dd82-4daf-87ab-43a588e32e32)
