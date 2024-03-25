@@ -28,7 +28,11 @@ Given a 2D map with obstacles, the task is to perform A* algorithm on a mobile r
 * math 
 
 ## Instructions to run the program 
-run the following command in the terminal 
+clone the repository 
+```
+git clone https://github.com/kiranajith/ENPM661-Projects.git
+```
+ change the branch from main to project 3 and run the following command in the terminal 
 ```
 python3 a_star_weili_kiran.py
 ```
