@@ -42,9 +42,9 @@ def draw_obstacles(canvas,robot_radius,clearance):
     offset = robot_radius + clearance  # Total enlargement of obstacles
     height, width, _ = canvas.shape 
     height,width,_ = canvas.shape 
-    print('Dimensions of the canvas')
-    print('------------------------')
-    print(f"height * width: {height} * {width}")
+    # print('Dimensions of the canvas')
+    # print('------------------------')
+    # print(f"height * width: {height} * {width}")
     for i in range(width): # traverse through the width of the canvas 
         for j in range(height): # traverse through the height of the canvas
             # model the left-most rectangle
@@ -790,8 +790,8 @@ if __name__ == '__main__':
     # make an empty canvas 
     canvas = np.ones((500,1200,3),dtype="uint8") 
     # specify the amount of clearance by which the obstacles are to be bloated
-    # clearance , radius = get_radius_and_clearance()
-    clearance , radius = 5, 5
+    clearance , radius = get_radius_and_clearance()
+    # clearance , radius = 5, 5
     # add the obstacles in the free space of the map, and add the clearance area around them 
     canvas = draw_obstacles(canvas,radius,clearance) 
     # cv2.imshow("Canvas",canvas)
