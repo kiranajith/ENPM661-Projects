@@ -58,7 +58,7 @@ Node exploration started\
 Finding the path...\
 Solved!!\
 Total Number of Nodes Explored =  3733\
-Total run time : 79.78 sec\
+Total run time : 79.78 sec
 
-## Node exploration for the sample testcase
+## Node exploration for the sample test case
 https://github.com/kiranajith/ENPM661-Projects/assets/63303617/d6d4c453-dba5-4e37-8a42-dd5add62fa53
