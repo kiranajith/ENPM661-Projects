@@ -401,7 +401,9 @@ def a_star(initial_state, goal_state, canvas, step_size):
     
     fileNodes = open("Nodes.txt", "w")
     fileParents = open("Parents.txt", "w")
-    open_list = [] # empty list representing the open list 
+    open_list = [] # empty list representing the open list
+    explored_nodes =[]
+    # explored_nodes.append(scaling_init_state)
     back_track_flag = False
     iteration = 0
     hq.heapify(open_list)
@@ -457,6 +459,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
                 parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
                 parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
                 parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
@@ -490,6 +493,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
                 parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
                 parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
                 parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
@@ -523,6 +527,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
                 parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
                 parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
                 parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
@@ -556,6 +561,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
                 parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
                 parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
                 parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
@@ -589,6 +595,7 @@ def a_star(initial_state, goal_state, canvas, step_size):
                 cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
+                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
                 parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
                 parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
                 parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
@@ -619,8 +626,9 @@ def a_star(initial_state, goal_state, canvas, step_size):
         print("Solved!!")
         #Call the backtrack function
         # path = generate_path(last_node, parent_track)
-        # path_x, path_y, path_theta = generate_path(initial_state,last_node,closed_list,canvas)
-        generate_path(initial_state,last_node,closed_list,canvas)
+        path_x, path_y, path_theta = optimal_path(last_node, parent_track_x, parent_track_y, parent_track_theta)
+        # generate_path(initial_state,last_node,closed_list,canvas)
+        generate_path(initial_state,last_node,explored_nodes,canvas, path_x, path_y, path_theta)
         # path = generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta, canvas)
         # print("path: ", path )
         # print('Optimal path: ', path_x)
@@ -650,69 +658,55 @@ def weighted_cost_to_go(dis):
     return dis*g_weighted_a_star
 
 
-# def generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta):
-#     path_x, path_y, path_theta = [], [], []
-#     # print(last_node, last_node[0], last_node[1], last_node[2], type(last_node))
-#     # print(last_node, parent_track[last_node[1]][last_node[0]][orientation(last_node[2])])
-#     while parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])] != g_initial_parent:
-#         pre_x = parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])]
-#         pre_y = parent_track_y[last_node[1]][last_node[0]][orientation(last_node[2])]
-#         pre_theta = parent_track_theta[last_node[1]][last_node[0]][orientation(last_node[2])]
-#         # last_node = np.unravel_index(int(parent_track[last_node[1]][last_node[0]][orientation(last_node[2])]), 
-#         #                              (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-#         print(last_node, pre_x, pre_y, pre_theta)
+def optimal_path(last_node, parent_track_x, parent_track_y, parent_track_theta):
+    path_x, path_y, path_theta = [], [], []
+    # print(last_node, last_node[0], last_node[1], last_node[2], type(last_node))
+    # print(last_node, parent_track[last_node[1]][last_node[0]][orientation(last_node[2])])
+    while parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])] != g_initial_parent:
+        pre_x = parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])]
+        pre_y = parent_track_y[last_node[1]][last_node[0]][orientation(last_node[2])]
+        pre_theta = parent_track_theta[last_node[1]][last_node[0]][orientation(last_node[2])]
+        # last_node = np.unravel_index(int(parent_track[last_node[1]][last_node[0]][orientation(last_node[2])]), 
+        #                              (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+        # print(last_node, pre_x, pre_y, pre_theta)
 
-#         last_node[0] = int(pre_x)
-#         last_node[1] = int(pre_y)
-#         last_node[2] = int(pre_theta)
-#         path_x.append(last_node[0])
-#         path_y.append(last_node[1])
-#         path_theta.append(last_node[2])
+        last_node[0] = int(pre_x)
+        last_node[1] = int(pre_y)
+        last_node[2] = int(pre_theta)
+        path_x.append(last_node[0])
+        path_y.append(last_node[1])
+        path_theta.append(last_node[2])
 
-#     return path_x, path_y, path_theta
+    return path_x, path_y, path_theta
 
-def generate_path(initial_state, final_state, closed_list, canvas):
+def generate_path(initial_state, final_state, explored_nodes, canvas, path_x, path_y, path_theta):
 
     fourcc = cv2.VideoWriter_fourcc(*'XVID')    # Creating video writer to generate a video.
     output = cv2.VideoWriter('node_exploration.avi',fourcc,500,(canvas.shape[1],canvas.shape[0]))
     
-    print("Total Number of Nodes Explored = ",len(closed_list)) 
+    print("Total Number of Nodes Explored = ",len(explored_nodes)) 
     
-    keys = closed_list.keys()    # Returns all the nodes that are explored
-    path = []    # Stack to store the path from start to goal
+    cv2.circle(canvas,(initial_state[0], initial_state[1]),2,(0,0,255),-1)
+    cv2.circle(canvas,(final_state[0], final_state[1]),2,(0,0,255),-1)
+    output.write(canvas)
     
-    # Visualizing the explored nodes
-    keys = list(keys)
-    for key in keys:
-        current_node = closed_list[tuple(key)]
-        cv2.circle(canvas,(int(key[0]),int(key[1])),2,(0,0,255),-1)
-        cv2.circle(canvas,(int(current_node[0]),int(current_node[1])),2,(0,0,255),-1)
-        canvas = cv2.arrowedLine(canvas, (int(current_node[0]),int(current_node[1])), (int(key[0]),int(key[1])), (0,255,0), 1, tipLength = 0.2)
+    for i in range(len(explored_nodes)):
+        cv2.arrowedLine(canvas, explored_nodes[i][0], explored_nodes[i][1], (0,255,0), 1, tipLength = 0.2)
         cv2.imshow("Visualization of node exploration",canvas)
         cv2.waitKey(1)
         output.write(canvas)
 
-    parent_node = closed_list[tuple(final_state)]
-    path.append(final_state)    # Appending the final state because of the loop starting condition
-    
-    while(parent_node != initial_state):
-        path.append(parent_node)
-        parent_node = closed_list[tuple(parent_node)]
-    
-    path.append(initial_state)    # Appending the initial state because of the loop breaking condition
-    print("\nOptimal Path: ")
-    start_node = path.pop()
-    print(start_node)
-
     # Visualizing the optimal path
-    while(len(path) > 0):
-        path_node = path.pop()
-        cv2.line(canvas,(int(start_node[0]),int(start_node[1])),(int(path_node[0]),int(path_node[1])),(255,0,196),5)
-        print(path_node)
-        start_node = path_node.copy()
+    for i in reversed(range(len(path_x)-1)):
+        cv2.line(canvas, (path_x[i+1], path_y[i+1]), (path_x[i], path_y[i]), (255,0,196), 5)
+        cv2.waitKey(1)
         output.write(canvas)
-    
-    output.release()
+
+    cv2.circle(canvas,(initial_state[0], initial_state[1]),2,(0,0,255),-1)
+    cv2.circle(canvas,(final_state[0], final_state[1]),2,(0,0,255),-1)
+    output.write(canvas)
+
+    output.release()    
 # ---------- MAIN FUNCTION ------------
 
 if __name__ == '__main__':
