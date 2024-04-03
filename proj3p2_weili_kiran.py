@@ -2,22 +2,29 @@ import cv2
 import numpy as np
 import heapq as hq
 import time
-from math import sqrt
+import math
+import imutils
 
 
 # Global variable
 g_angle = 30
 g_action_set_number = 5
 g_total_degree = 360
-g_matrix_threshold = 0.5
+g_matrix_threshold = 0.1
 g_scaling = int(1/g_matrix_threshold)
-g_goal_threshold = 1.5 * g_scaling
-g_canvas_height = 250
+g_goal_threshold = 10 * g_scaling
+g_canvas_height = 200
 g_canvas_width = 600
-g_sacling_canvas_height = 250 * g_scaling
-g_sacling_canvas_width = 600 * g_scaling
+g_scaling_canvas_height = g_canvas_height * g_scaling
+g_scaling_canvas_width = g_canvas_width * g_scaling
 g_initial_parent = -1
 g_weighted_a_star = 1
+g_dt = 0.1
+
+# Turtlebot3 waffle spec with unit mm
+g_robot_radius = 220
+g_wheel_radius = 33
+g_wheel_distance = 287
 
 def is_within_obstacle(canvas, new_height, new_width):
     """
@@ -29,7 +36,7 @@ def is_within_obstacle(canvas, new_height, new_width):
         return False
     else:
         return True
-def draw_obstacles(canvas,robot_radius,clearance):   
+def draw_obstacles(canvas, robot_radius, clearance):   
     """ this function is used to pbstacles in the map
     the obstacles are marked in white pixels
 
@@ -49,34 +56,32 @@ def draw_obstacles(canvas,robot_radius,clearance):
         for j in range(height): # traverse through the height of the canvas
             # model the left-most rectangle
             # ----- offset -----------
-            if(i-100+offset>=0 and i-175-offset<=0 and height-j-100+offset>=0 and height-j-500-offset<0):
+            if(i-1500+offset>=0 and i-1750-offset<=0 and height-j-1000+offset>=0 and height-j-2000-offset<0):
                 canvas[j][i] = [0,0,255] 
             # model the 2nd rectangle
-            if(i-275+offset>=0 and i-350-offset<=0 and height-j+offset>=0 and height-j-425-offset<=0):
-                canvas[j][i] = [0,0,255]
-            
-            # model the C-shaped figure 
-            if(i-900+offset>=0 and i-1020-offset<=0 and height-j-375+offset>=0 and height-j-450-offset<=0) or (i-900+offset>=0 and i-1020-offset<=0 and height-j-50+offset>=0 and height-j-125-offset<0) or (i-1020+offset>=0 and i-1100-offset<=0 and height-j-50+offset>=0 and height-j-450-offset<=0):
+            if(i-2500+offset>=0 and i-2750-offset<=0 and height-j+offset>=0 and height-j-1000-offset<=0):
                 canvas[j][i] = [0,0,255]
 
+            # model the circle
+            if (i - 4200 ) ** 2 + (j - 1200) ** 2 - (600 + offset)**2 <= 0:
+                canvas[j][i] = [0,0,255]
             # model the hexagon 
-            if(i+offset>=500 and i-offset<=800) and (j-offset<=(0.5*i)+75) and (j+offset>=(0.5*i)-225) and  (j-offset<=(-0.5*i)+725) and (j+offset>=(-0.5*i)+425): 
-                canvas[j][i] = [0,0,255] 
+            # if(i+offset>=500 and i-offset<=800) and (j-offset<=(0.5*i)+75) and (j+offset>=(0.5*i)-225) and  (j-offset<=(-0.5*i)+725) and (j+offset>=(-0.5*i)+425): 
+            #     canvas[j][i] = [0,0,255] 
 
             # --------- obstacle space --------
-            if(i-100>=0 and i-175<=0 and height-j-100>=0 and height-j-500<0):
+            if(i-1500>=0 and i-1750<=0 and height-j-1000>=0 and height-j-2000<0):
                 canvas[j][i] = [255,255,255] 
             # model the 2nd rectangle
-            if(i-275>=0 and i-350<=0 and height-j>=0 and height-j-425<=0):
-                canvas[j][i] = [255,255,255]
-            
-            # model the C-shaped figure 
-            if(i-900>=0 and i-1020<=0 and height-j-375>=0 and height-j-450<=0) or (i-900>=0 and i-1020<=0 and height-j-50>=0 and height-j-125<0) or (i-1020>=0 and i-1100<=0 and height-j-50>=0 and height-j-450<=0):
+            if(i-2500>=0 and i-2750<=0 and height-j>=0 and height-j-1000<=0):
                 canvas[j][i] = [255,255,255]
 
+            # model the circle
+            if (i - 4200) ** 2 + (j - 1200) ** 2 - 600**2 <= 0:
+                canvas[j][i] = [255,255,255]
             # model the hexagon 
-            if(i>=500 and i<=800) and (j<=(0.5*i)+75) and (j>=(0.5*i)-225) and  (j<=(-0.5*i)+725) and (j>=(-0.5*i)+425): 
-                canvas[j][i] = [255,255,255]           
+            # if(i>=500 and i<=800) and (j<=(0.5*i)+75) and (j>=(0.5*i)-225) and  (j<=(-0.5*i)+725) and (j>=(-0.5*i)+425): 
+            #     canvas[j][i] = [255,255,255]           
     return canvas
 
 
@@ -107,7 +112,7 @@ def draw_obstacles_with_clearance(canvas, clearance):
 def threshold(n):
     res = round(n*g_scaling)
     return res
-
+'''
 def action_rotate_zero_degrees(node, canvas, visited, step):    
     """ rotates the robot 30 degrees counterclockwise 
 
@@ -306,7 +311,7 @@ def action_rotate_positive_sixty_degrees(node, canvas, visited, step):
             return True, new_node,False
     else:
         return False, new_node,False
-    
+'''    
     
 def validate_points(canvas):
     """ this function checks the validity of start and goal nodes 
@@ -396,6 +401,59 @@ def validate_points(canvas):
             break
     return initial_state,goal_state, int(step_size)
 
+def cost(node, uL, uR):
+    t = 0
+    r = g_wheel_radius
+    L = g_wheel_distance
+
+    new_node = node.copy()
+    uL = uL * 3.14 / 30
+    uR = uR * 3.14 / 30
+
+    new_x = new_node[0]
+    new_y = new_node[1]
+    new_theta = np.deg2rad(new_node[2])
+# Xi, Yi,Thetai: Input point's coordinates
+# Xs, Ys: Start point coordinates for plot function
+# Xn, Yn, Thetan: End point coordintes
+    distance = 0
+    while t < 1:
+        t = t + g_dt
+        delta_x = 0.5 * r * (uL + uR) * math.cos(new_theta) * g_dt
+        delta_y = 0.5 * r * (uL + uR) * math.sin(new_theta) * g_dt
+        new_x += delta_x
+        new_y += delta_y
+        new_theta += (r / L) * (uR - uL) * g_dt
+        distance = distance + math.sqrt(math.pow(delta_x, 2)+math.pow(delta_y, 2))
+
+    new_theta = np.rad2deg(new_theta)
+    return_node = trans_node(new_x, new_y, new_theta)
+    return return_node, distance
+
+def action_set(node, canvas, rpm1, rpm2):
+    paths = []
+    path_distance = []
+    
+    actions=[[0, rpm1], 
+             [rpm1, 0],
+             [rpm1, rpm1],
+             [0, rpm2],
+             [rpm2, 0],
+             [rpm2,rpm2],
+             [rpm1, rpm2],
+             [rpm2, rpm1]]
+    
+    for action in actions:
+        new_node, distance =cost(node, action[0], action[1])
+        new_width = new_node[0]
+        new_height = new_node[1]
+        if(round(new_height)>0 and round(new_height)<canvas.shape[0]) and \
+        (round(new_width)>0 and round(new_width)<canvas.shape[1]) and \
+        (is_within_obstacle(canvas, new_height, new_width)) :
+            paths.append(new_node)
+            path_distance.append(distance)
+
+    return paths, path_distance
 
 def get_radius_and_clearance():
 
@@ -414,12 +472,17 @@ def get_radius_and_clearance():
             break    
     return int(clearance),int(radius)
 
-def orientation(angle):
+def trans_node(x, y, angle):
+    new_node = []
     if angle < 0:
         angle += 360
-    return angle // g_angle
+    angle = round(angle % 360)
+    x = round(x)
+    y = round(y)
+    new_node = [x, y, angle]
+    return new_node
 
-def a_star(initial_state, goal_state, canvas, step_size):
+def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
     """ this function perfoms the A* algorithm for a mobile robot to navigate the map 
 
     
@@ -428,10 +491,8 @@ def a_star(initial_state, goal_state, canvas, step_size):
         goal_state : the node where the robot should navigate to 
         canvas : the map in which the navigation is performed 
     """
-    # store min cost of each node
-    closed_list = {}
-
-    cost_to_come_array = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+    # store min cost to come of each node
+    cost_to_come = {}
 
     # scaling initial node and goal node
     scaling_init_state = initial_state.copy()
@@ -444,15 +505,14 @@ def a_star(initial_state, goal_state, canvas, step_size):
     print('dis: ', (euclidean_distance(scaling_init_state, scaling_goal_state)))
 
     # store parent node of each node
-    # parent_track = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-    # parent_track[scaling_init_state[1]][scaling_init_state[0]][orientation(scaling_init_state[2])] = g_initial_parent
-    parent_track_x = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-    parent_track_y = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-    parent_track_theta = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-    parent_track_x[scaling_init_state[1]][scaling_init_state[0]][orientation(scaling_init_state[2])] = g_initial_parent
-    
+    parent_track = {}
+    start_key = (scaling_init_state[0], scaling_init_state[1], scaling_init_state[2])
+    # parent_track format:[node, parent node, cost to come]
+    parent_track[start_key] = [[scaling_init_state[0], scaling_init_state[1]], [g_initial_parent, g_initial_parent], 0]
+    # cost_to_come[start_key] = 0
     # store visited nodes
-    visited = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+    # visited = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
+    visited = {}
     
     fileNodes = open("Nodes.txt", "w")
     fileParents = open("Parents.txt", "w")
@@ -466,227 +526,55 @@ def a_star(initial_state, goal_state, canvas, step_size):
     print("Node exploration started")
     while(len(open_list) > 0):
         node = hq.heappop(open_list)
-        current_cost, current_node = node[0], node[1]
+        _, current_node = node[0], node[1]
         current_key = (current_node[0], current_node[1], current_node[2])  # Tuple key: (x, y, theta)
-
-        canvas_vis = canvas.copy()
-        # cv2.circle(canvas_vis, (int(current_node[0]), int(current_node[1])), 3, (0, 255, 0), -1)
-        # cv2.imshow("Path Planning Visualization", canvas_vis)
-        # cv2.waitKey(1) 
-        if current_key not in closed_list:
-            closed_list[current_key] = (parent_track_x[current_node[1]][current_node[0]][orientation(current_node[2])],
-                                        parent_track_y[current_node[1]][current_node[0]][orientation(current_node[2])],
-                                        parent_track_theta[current_node[1]][current_node[0]][orientation(current_node[2])])
-        # node_key = (node[1][0], node[1][1], node[1][2])  # Example key using x, y, and theta
-        # # Once a node is popped from the open list, it is considered in the closed list
-        # closed_list[node_key] = parent_track_x[node[1][1]][node[1][0]][orientation(node[1][2])], \
-        #                         parent_track_y[node[1][1]][node[1][0]][orientation(node[1][2])], \
-        #                         parent_track_theta[node[1][1]][node[1][0]][orientation(node[1][2])]
         
-    
-        present_cost = node[0]
-        
-        if (visited[node[1][1]][node[1][0]][orientation(node[1][2])] == 2):
-            fileNodes.writelines('Closed' + str(node) + '\n')
-            continue
+        if current_key in visited:
+            if (visited[current_key] == 2):
+                fileNodes.writelines('Closed' + str(node) + '\n')
+                continue
         fileNodes.writelines('Curr' + str(node) + '\n')
-        # print(node, cost_to_come_array[node[1][1]][node[1][0]][orientation(node[1][2])])
-        # print(parent_track[node[1][1]][node[1][0]][orientation(node[1][2])])
-        # fileNodes.writelines('Curr' + str(parent_track) + '\n')
 
         # the node is within the threshold distance of the goal node
-        if (euclidean_distance(list(node[1]), scaling_goal_state) <= g_goal_threshold) and (node[1][2] == scaling_goal_state[2]):
+        if (euclidean_distance(current_node, scaling_goal_state) <= g_goal_threshold):
             back_track_flag = True
-            last_node = list(node[1])
+            last_node = current_node
             print("Finding the path...") 
             break 
         
-        # perfom the actions 
-        flag_valid, next_node, flag_visited = action_rotate_zero_degrees(node[1], canvas, visited, step_size)
-        
-        # print(next_node)
-        if(flag_valid):
-            cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(node[1][2])] + step_size
-            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
-            fileNodes.writelines('0: ' + str(cost) + ' ' + str(next_node) + '\n')
-            # print('cost:', cost)
-            if flag_visited == False:
-                cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
+        # perfom the actions
+        next_nodes, distance = action_set(current_node, canvas, rpm1, rpm2)
+        node_ctc = parent_track[current_key][2]
+        # print(next_nodes)
+        for i, next_node in enumerate(next_nodes):
+            next_node_key = (next_node[0], next_node[1], next_node[2])
+            next_node_ctc = node_ctc + distance[i]
+            cost = next_node_ctc + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
+            if next_node_key in visited:
+                if visited[next_node_key] == 1: # visited, but not closed
+                    previous_cost = parent_track[next_node_key][2]
+                    if (next_node_ctc < previous_cost):
+                        parent_track[next_node_key][2] = next_node_ctc
+                        hq.heappush(open_list, [cost, list(next_node)])
+                        hq.heapify(open_list)
+                        # parent_track[next_node_key][0] = next_node
+                        parent_track[next_node_key][1] = current_node
+            else:
+                parent_track[next_node_key] = [next_node, current_node, next_node_ctc]
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
-                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
-                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                #                                                                                             node[1][0], 
-                #                                                                                             orientation(node[1][2])], 
-                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-            else:
-                previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
-                if (cost_to_come < previous_cost):
-                    cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
-                    hq.heappush(open_list, [cost, list(next_node)])
-                    hq.heapify(open_list)
-                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                    #                                                                                         node[1][0], 
-                    #                                                                                         orientation(node[1][2])], 
-                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-        
-        flag_valid, next_node, flag_visited = action_rotate_negative_thirty_degrees(node[1], canvas, visited, step_size)
-        # print(next_node)
+                explored_nodes.append([(current_node[0], current_node[1]), (next_node[0], next_node[1])])
 
-        if(flag_valid):
-            cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(int(node[1][2]))] + step_size
-            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
-            fileNodes.writelines('-1: ' + str(cost) + ' ' + str(next_node) + '\n')
-            # print('cost:', cost)
-            if flag_visited == False:
-                cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
-                hq.heappush(open_list, [cost, list(next_node)])
-                hq.heapify(open_list)
-                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
-                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                #                                                                                             node[1][0], 
-                #                                                                                             orientation(node[1][2])], 
-                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-            else:
-                previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
-                if (cost_to_come < previous_cost):
-                    cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
-                    hq.heappush(open_list, [cost, list(next_node)])
-                    hq.heapify(open_list)
-                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                    #                                                                                         node[1][0], 
-                    #                                                                                         orientation(node[1][2])], 
-                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-
-        flag_valid, next_node, flag_visited = action_rotate_negative_sixty_degrees(node[1], canvas, visited, step_size)
-        # print(next_node)
-
-        if(flag_valid):
-            cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(int(node[1][2]))] + step_size
-            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
-            fileNodes.writelines('-2: ' + str(cost) + ' ' + str(next_node) + '\n')
-            # print('cost:', cost)
-            if flag_visited == False:
-                cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
-                hq.heappush(open_list, [cost, list(next_node)])
-                hq.heapify(open_list)
-                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
-                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                #                                                                                             node[1][0], 
-                #                                                                                             orientation(node[1][2])], 
-                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-            else:
-                previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
-                if (cost_to_come < previous_cost):
-                    cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
-                    hq.heappush(open_list, [cost, list(next_node)])
-                    hq.heapify(open_list)
-                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                    #                                                                                         node[1][0], 
-                    #                                                                                         orientation(node[1][2])], 
-                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-
-        flag_valid, next_node, flag_visited = action_rotate_positive_thirty_degrees(node[1], canvas, visited, step_size)
-        # print(next_node)
-
-        if(flag_valid):
-            cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(int(node[1][2]))] + step_size
-            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
-            fileNodes.writelines('1: ' + str(cost) + ' ' + str(next_node) + '\n')
-            # print('cost:', cost)
-            if flag_visited == False:
-                cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
-                hq.heappush(open_list, [cost, list(next_node)])
-                hq.heapify(open_list)
-                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
-                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                #                                                                                             node[1][0], 
-                #                                                                                             orientation(node[1][2])], 
-                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-            else:
-                previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
-                if (cost_to_come < previous_cost):
-                    cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
-                    hq.heappush(open_list, [cost, list(next_node)])
-                    hq.heapify(open_list)
-                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                    #                                                                                         node[1][0], 
-                    #                                                                                         orientation(node[1][2])], 
-                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-        
-        flag_valid, next_node, flag_visited = action_rotate_positive_sixty_degrees(node[1], canvas, visited, step_size)
-        # print(next_node)
-
-        if(flag_valid):
-            cost_to_come = cost_to_come_array[node[1][1]][node[1][0]][orientation(int(node[1][2]))] + step_size
-            cost = cost_to_come + weighted_cost_to_go(euclidean_distance(next_node, scaling_goal_state))
-            fileNodes.writelines('2: ' + str(cost) + ' ' + str(next_node) + '\n')
-            # print('cost:', cost)
-            if flag_visited == False:
-                cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
-                hq.heappush(open_list, [cost, list(next_node)])
-                hq.heapify(open_list)
-                explored_nodes.append([(node[1][0], node[1][1]), (next_node[0], next_node[1])])
-                parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                #                                                                                             node[1][0], 
-                #                                                                                             orientation(node[1][2])], 
-                #                                                                                             (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-            else:
-                previous_cost = cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))]
-                if (cost_to_come < previous_cost):
-                    cost_to_come_array[next_node[1]][next_node[0]][orientation(int(next_node[2]))] = cost_to_come
-                    hq.heappush(open_list, [cost, list(next_node)])
-                    hq.heapify(open_list)
-                    parent_track_x[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][0]
-                    parent_track_y[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][1]
-                    parent_track_theta[next_node[1]][next_node[0]][orientation(next_node[2])] = node[1][2]
-                    # parent_track[next_node[1]][next_node[0]][orientation(next_node[2])] = np.ravel_multi_index([node[1][1], 
-                    #                                                                                         node[1][0], 
-                    #                                                                                         orientation(node[1][2])], 
-                    #                                                                                         (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-        
         # mark the current node as in the closed list. 0: unexplored 1: visited; 2: closed
-        visited[node[1][1]][node[1][0]][orientation(node[1][2])] = 2
+        visited[current_key] = 2
         hq.heapify(open_list)
         iteration += 1
-    
+
     if(back_track_flag):
         print("Solved!!")
         #Call the backtrack function
-        # path = generate_path(last_node, parent_track)
-        path_x, path_y, path_theta = optimal_path(last_node, parent_track_x, parent_track_y, parent_track_theta)
-        # generate_path(initial_state,last_node,closed_list,canvas)
+        path_x, path_y, path_theta = optimal_path(last_node, parent_track)
         generate_path(initial_state,last_node,explored_nodes,canvas, path_x, path_y, path_theta)
-        # path = generate_path(last_node, parent_track_x, parent_track_y, parent_track_theta, canvas)
-        # print("path: ", path )
-        # print('Optimal path: ', path_x)
         
     else:
         print("Solution Cannot Be Found")
@@ -704,7 +592,7 @@ def euclidean_distance(node, goal_node):
     Returns:
         the distance between the goal node and current nodes
     """
-    dis = round(sqrt((goal_node[0] - node[0])**2 + (goal_node[1] - node[1])**2))
+    dis = round(math.sqrt((goal_node[0] - node[0])**2 + (goal_node[1] - node[1])**2))
     # dis = sqrt((goal_node[0] - node[0])**2 + (goal_node[1] - node[1])**2)
 
     return dis
@@ -718,7 +606,7 @@ def weighted_cost_to_go(dis):
     return dis*g_weighted_a_star
 
 
-def optimal_path(last_node, parent_track_x, parent_track_y, parent_track_theta):
+def optimal_path(last_node, parent_track):
     """finds the optimal path by backtracking
 
     Args:
@@ -731,54 +619,57 @@ def optimal_path(last_node, parent_track_x, parent_track_y, parent_track_theta):
         optimal path from the start to goal node  
     """
     path_x, path_y, path_theta = [], [], []
+    track_node = (last_node[0], last_node[1], last_node[2])
     # print(last_node, last_node[0], last_node[1], last_node[2], type(last_node))
     # print(last_node, parent_track[last_node[1]][last_node[0]][orientation(last_node[2])])
-    while parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])] != g_initial_parent:
-        pre_x = parent_track_x[last_node[1]][last_node[0]][orientation(last_node[2])]
-        pre_y = parent_track_y[last_node[1]][last_node[0]][orientation(last_node[2])]
-        pre_theta = parent_track_theta[last_node[1]][last_node[0]][orientation(last_node[2])]
-        # last_node = np.unravel_index(int(parent_track[last_node[1]][last_node[0]][orientation(last_node[2])]), 
-        #                              (g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
-        # print(last_node, pre_x, pre_y, pre_theta)
+    while parent_track[track_node][1][0] != g_initial_parent:
+        pre_x = parent_track[track_node][1][0]
+        pre_y = parent_track[track_node][1][1]
+        pre_theta = parent_track[track_node][1][2]
 
-        last_node[0] = int(pre_x)
-        last_node[1] = int(pre_y)
-        last_node[2] = int(pre_theta)
-        path_x.append(last_node[0])
-        path_y.append(last_node[1])
-        path_theta.append(last_node[2])
+        track_node = (pre_x, pre_y, pre_theta)
+
+        path_x.append(pre_x)
+        path_y.append(pre_y)
+        path_theta.append(pre_theta)
 
     return path_x, path_y, path_theta
 
-def generate_path(initial_state, final_state, explored_nodes, canvas, path_x, path_y, path_theta):
+def generate_path(initial_state, final_state, explored_nodes, gen_canvas, path_x, path_y, path_theta):
     """ 
     this function visualises the node exploration  
     """
 
+    # gen_canvas = canvas.copy()
+
     fourcc = cv2.VideoWriter_fourcc(*'XVID')    # Creating video writer to generate a video.
-    output = cv2.VideoWriter('node_exploration.avi',fourcc,500,(canvas.shape[1],canvas.shape[0]))
+    output = cv2.VideoWriter('node_exploration.avi',fourcc,500,(g_canvas_width, g_canvas_height))
     
     print("Total Number of Nodes Explored = ",len(explored_nodes)) 
     
-    cv2.circle(canvas,(initial_state[0], initial_state[1]),2,(0,0,255),-1)
-    cv2.circle(canvas,(final_state[0], final_state[1]),2,(0,0,255),-1)
-    output.write(canvas)
+    cv2.circle(gen_canvas,(initial_state[0], initial_state[1]),50,(0,0,255),-1)
+    cv2.circle(gen_canvas,(final_state[0], final_state[1]),50,(0,0,255),-1)
+    resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
+    output.write(resize_canvas)
     
     for i in range(len(explored_nodes)):
-        cv2.arrowedLine(canvas, explored_nodes[i][0], explored_nodes[i][1], (0,255,0), 1, tipLength = 0.2)
-        cv2.imshow("Visualization of node exploration",canvas)
+        cv2.arrowedLine(gen_canvas, explored_nodes[i][0], explored_nodes[i][1], (0,255,0), 10, tipLength = 0.2)
+        resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
+        cv2.imshow("Visualization of node exploration",resize_canvas)
         cv2.waitKey(1)
-        output.write(canvas)
+        output.write(resize_canvas)
 
     # Visualizing the optimal path
     for i in reversed(range(len(path_x)-1)):
-        cv2.line(canvas, (path_x[i+1], path_y[i+1]), (path_x[i], path_y[i]), (255,0,196), 5)
+        cv2.line(gen_canvas, (path_x[i+1], path_y[i+1]), (path_x[i], path_y[i]), (255,0,196), 50)
+        resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
         cv2.waitKey(1)
-        output.write(canvas)
+        output.write(resize_canvas)
 
-    cv2.circle(canvas,(initial_state[0], initial_state[1]),2,(0,0,255),-1)
-    cv2.circle(canvas,(final_state[0], final_state[1]),2,(0,0,255),-1)
-    output.write(canvas)
+    cv2.circle(gen_canvas,(initial_state[0], initial_state[1]),50,(0,0,255),-1)
+    cv2.circle(gen_canvas,(final_state[0], final_state[1]),50,(0,0,255),-1)
+    resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
+    output.write(resize_canvas)
 
     output.release()    
 # ---------- MAIN FUNCTION ------------
@@ -788,30 +679,30 @@ if __name__ == '__main__':
     # start the timer to keep track of total runtime
     start_time = time.time()
     # make an empty canvas 
-    canvas = np.ones((500,1200,3),dtype="uint8") 
+    canvas = np.ones((g_scaling_canvas_height, g_scaling_canvas_width, 3), dtype="uint8") 
     # specify the amount of clearance by which the obstacles are to be bloated
-    clearance , radius = get_radius_and_clearance()
-    # clearance , radius = 5, 5
+    # clearance , radius = get_radius_and_clearance()
+    clearance , radius = 5, 5
     # add the obstacles in the free space of the map, and add the clearance area around them 
     canvas = draw_obstacles(canvas,radius,clearance) 
     # cv2.imshow("Canvas",canvas)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
-    initial_state,goal_state ,step_size = validate_points(canvas)
-    # initial_state, goal_state ,step_size = [5, 5, 0], [50, 50, 30], 5 
-    initial_state[1] = g_sacling_canvas_height-1 - initial_state[1]
-    goal_state[1] = g_sacling_canvas_height-1 - goal_state[1]
-    # to downscale the image to speed up the video 
-    # scale_factor = 0.5  
-    # canvas = downsample_image(canvas, scale_factor=scale_factor)
-    # # scaling the initial and goal points
-    # initial_state = [int(x * scale_factor) for x in initial_state]
-    # goal_state = [int(x * scale_factor) for x in goal_state]
+    # initial_state,goal_state ,step_size = validate_points(canvas)
+    initial_state, goal_state = [500, 500, 0], [2000, 1500]
+    initial_state[1] = g_scaling_canvas_height-1 - initial_state[1]
+    goal_state[1] = g_scaling_canvas_height-1 - goal_state[1]
+
+    rpm1, rpm2 = 20, 40
+
+
     # perform A* algorithm
-    a_star(initial_state, goal_state, canvas, step_size)
+    a_star(initial_state, goal_state, canvas, rpm1, rpm2)
     # end the clock 
     end_time = time.time()
+    # Resize image
+    canvas = imutils.resize(canvas, width=g_canvas_width)
     cv2.imshow("Optimal path",canvas)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
