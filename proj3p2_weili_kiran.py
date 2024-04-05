@@ -18,7 +18,7 @@ g_canvas_width = 600
 g_scaling_canvas_height = g_canvas_height * g_scaling
 g_scaling_canvas_width = g_canvas_width * g_scaling
 g_initial_parent = -1
-g_weighted_a_star = 1
+g_weighted_a_star = 2
 g_dt = 0.1
 
 # Turtlebot3 waffle spec with unit mm
@@ -63,7 +63,7 @@ def draw_obstacles(canvas, robot_radius, clearance):
                 canvas[j][i] = [0,0,255]
 
             # model the circle
-            if (i - 4200 ) ** 2 + (j - 1200) ** 2 - (600 + offset)**2 <= 0:
+            if (i - 4200 ) ** 2 + (j - 800) ** 2 - (600 + offset)**2 <= 0:
                 canvas[j][i] = [0,0,255]
             # model the hexagon 
             # if(i+offset>=500 and i-offset<=800) and (j-offset<=(0.5*i)+75) and (j+offset>=(0.5*i)-225) and  (j-offset<=(-0.5*i)+725) and (j+offset>=(-0.5*i)+425): 
@@ -77,7 +77,7 @@ def draw_obstacles(canvas, robot_radius, clearance):
                 canvas[j][i] = [255,255,255]
 
             # model the circle
-            if (i - 4200) ** 2 + (j - 1200) ** 2 - 600**2 <= 0:
+            if (i - 4200) ** 2 + (j - 800) ** 2 - 600**2 <= 0:
                 canvas[j][i] = [255,255,255]
             # model the hexagon 
             # if(i>=500 and i<=800) and (j<=(0.5*i)+75) and (j>=(0.5*i)-225) and  (j<=(-0.5*i)+725) and (j>=(-0.5*i)+425): 
@@ -401,10 +401,11 @@ def validate_points(canvas):
             break
     return initial_state,goal_state, int(step_size)
 
-def cost(node, uL, uR):
+def cost(node, uL, uR, canvas):
     t = 0
     r = g_wheel_radius
     L = g_wheel_distance
+    clear_path_flag = True
 
     new_node = node.copy()
     uL = uL * 3.14 / 30
@@ -425,10 +426,17 @@ def cost(node, uL, uR):
         new_y += delta_y
         new_theta += (r / L) * (uR - uL) * g_dt
         distance = distance + math.sqrt(math.pow(delta_x, 2)+math.pow(delta_y, 2))
+        if(round(new_y) < 0 or round(new_y) >= g_scaling_canvas_height) or \
+          (round(new_x) < 0 or round(new_x) >= g_scaling_canvas_width):
+            clear_path_flag = False
+            break
+        elif (is_within_obstacle(canvas, new_y, new_x) == False) :
+            clear_path_flag = False
+            break
 
     new_theta = np.rad2deg(new_theta)
     return_node = trans_node(new_x, new_y, new_theta)
-    return return_node, distance
+    return clear_path_flag, return_node, distance #round(distance, 2)
 
 def action_set(node, canvas, rpm1, rpm2):
     paths = []
@@ -444,12 +452,8 @@ def action_set(node, canvas, rpm1, rpm2):
              [rpm2, rpm1]]
     
     for action in actions:
-        new_node, distance =cost(node, action[0], action[1])
-        new_width = new_node[0]
-        new_height = new_node[1]
-        if(round(new_height)>0 and round(new_height)<canvas.shape[0]) and \
-        (round(new_width)>0 and round(new_width)<canvas.shape[1]) and \
-        (is_within_obstacle(canvas, new_height, new_width)) :
+        clear_path_flag, new_node, distance =cost(node, action[0], action[1], canvas)
+        if clear_path_flag == True:
             paths.append(new_node)
             path_distance.append(distance)
 
@@ -526,17 +530,18 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
     print("Node exploration started")
     while(len(open_list) > 0):
         node = hq.heappop(open_list)
-        _, current_node = node[0], node[1]
+        current_cost, current_node = node[0], node[1]
         current_key = (current_node[0], current_node[1], current_node[2])  # Tuple key: (x, y, theta)
         
         if current_key in visited:
             if (visited[current_key] == 2):
                 fileNodes.writelines('Closed' + str(node) + '\n')
                 continue
-        fileNodes.writelines('Curr' + str(node) + '\n')
+        fileNodes.writelines('Curr ' + str(node) + '\n')
 
         # the node is within the threshold distance of the goal node
-        if (euclidean_distance(current_node, scaling_goal_state) <= g_goal_threshold):
+        # if (euclidean_distance(current_node, scaling_goal_state) <= g_goal_threshold):
+        if (current_cost == -1):
             back_track_flag = True
             last_node = current_node
             print("Finding the path...") 
@@ -559,11 +564,15 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
                         hq.heapify(open_list)
                         # parent_track[next_node_key][0] = next_node
                         parent_track[next_node_key][1] = current_node
+                        fileNodes.writelines('Switch ' + str(next_node) + '\n')
             else:
                 parent_track[next_node_key] = [next_node, current_node, next_node_ctc]
+                if (euclidean_distance(next_node, scaling_goal_state) <= g_goal_threshold):
+                    cost = -1
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
                 explored_nodes.append([(current_node[0], current_node[1]), (next_node[0], next_node[1])])
+                fileNodes.writelines('Explore ' + str(next_node) + '\n')
 
         # mark the current node as in the closed list. 0: unexplored 1: visited; 2: closed
         visited[current_key] = 2
@@ -575,7 +584,7 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
         #Call the backtrack function
         path_x, path_y, path_theta = optimal_path(last_node, parent_track)
         generate_path(initial_state,last_node,explored_nodes,canvas, path_x, path_y, path_theta)
-        
+        fileNodes.writelines('Total explored: ' + str(len(explored_nodes)) + '\n')
     else:
         print("Solution Cannot Be Found")
     
@@ -592,8 +601,8 @@ def euclidean_distance(node, goal_node):
     Returns:
         the distance between the goal node and current nodes
     """
-    dis = round(math.sqrt((goal_node[0] - node[0])**2 + (goal_node[1] - node[1])**2))
-    # dis = sqrt((goal_node[0] - node[0])**2 + (goal_node[1] - node[1])**2)
+    dis = round(math.sqrt((goal_node[0] - node[0])**2 + (goal_node[1] - node[1])**2), 2)
+    # dis = math.sqrt((goal_node[0] - node[0])**2 + (goal_node[1] - node[1])**2)
 
     return dis
 
@@ -620,6 +629,9 @@ def optimal_path(last_node, parent_track):
     """
     path_x, path_y, path_theta = [], [], []
     track_node = (last_node[0], last_node[1], last_node[2])
+    path_x.append(last_node[0])
+    path_y.append(last_node[1])
+    path_theta.append(last_node[2])
     # print(last_node, last_node[0], last_node[1], last_node[2], type(last_node))
     # print(last_node, parent_track[last_node[1]][last_node[0]][orientation(last_node[2])])
     while parent_track[track_node][1][0] != g_initial_parent:
@@ -653,6 +665,8 @@ def generate_path(initial_state, final_state, explored_nodes, gen_canvas, path_x
     output.write(resize_canvas)
     
     for i in range(len(explored_nodes)):
+        # curve = np.column_stack((explored_nodes[i][0], explored_nodes[i][1]))
+        # cv2.polylines(gen_canvas, [curve], False, (0,255,0), 10)
         cv2.arrowedLine(gen_canvas, explored_nodes[i][0], explored_nodes[i][1], (0,255,0), 10, tipLength = 0.2)
         resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
         cv2.imshow("Visualization of node exploration",resize_canvas)
@@ -661,6 +675,8 @@ def generate_path(initial_state, final_state, explored_nodes, gen_canvas, path_x
 
     # Visualizing the optimal path
     for i in reversed(range(len(path_x)-1)):
+        # curve = np.column_stack(((path_x[i+1], path_y[i+1]), (path_x[i], path_y[i])))
+        # cv2.polylines(gen_canvas, [curve], False, (255,0,196), 50)
         cv2.line(gen_canvas, (path_x[i+1], path_y[i+1]), (path_x[i], path_y[i]), (255,0,196), 50)
         resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
         cv2.waitKey(1)
@@ -690,11 +706,11 @@ if __name__ == '__main__':
     # cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
     # initial_state,goal_state ,step_size = validate_points(canvas)
-    initial_state, goal_state = [500, 500, 0], [2000, 1500]
+    initial_state, goal_state = [500, 500, 0], [6000, 500]
     initial_state[1] = g_scaling_canvas_height-1 - initial_state[1]
     goal_state[1] = g_scaling_canvas_height-1 - goal_state[1]
 
-    rpm1, rpm2 = 20, 40
+    rpm1, rpm2 = 50, 100
 
 
     # perform A* algorithm
