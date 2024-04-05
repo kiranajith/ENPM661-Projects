@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'project3 = project3_pkg.project3:main'
+            'project3 = project3_pkg.project3:main',
         ],
     },
 )
