@@ -1,5 +1,5 @@
-# ENPM661 Project 3
-## Phase 1 : Implementation of A* algorithm on a mobile robot 
+# ENPM661 Project 3 
+## Phase 2 : Implementation of A* algorithm on a turtlebot3 
 
 ### Team Members
 * Wei-Li Su (weisu77@umd.edu)\
@@ -27,42 +27,41 @@ Given a 2D map with obstacles, the task is to perform A* algorithm on a mobile r
 * time
 * math 
 
-## Instructions to run the program 
-clone the repository 
+## Part 2
+## Instructions to run the simulation 
+1. Create a ROS2 workspace
+* Go to your home directory and create a workspace to add the ROS2 packages
 ```
-git clone https://github.com/kiranajith/ENPM661-Projects.git
+mkdir -p projeect3ws>/src
+cd ~/project3_ws/src
 ```
- change the branch from main to project 3 and run the following command in the terminal 
+
+2. clone the  trurtlebot repository 
 ```
-python3 a_star_weili_kiran.py
+git clone https://github.com/shantanuparabumd/turtlebot3_project3.git
 ```
-Alternatively, run the a_star_weili_kiran.py in the IDE of your choice
-
-## Input Instructions
-* when the program is run, the user will be prompted to input the x and y coordinates of the start and goal nodes and the initial and final orientation of the robot(permitted angles of orientation are: 0,-30,-60,+30,+60)
-
-## Visualizing the output
-A window pops up showing the explored nodes and finally the generated path. A video file will also be created which shows the same.
-![Screenshot 2024-03-24 at 10 54 30 PM](https://github.com/kiranajith/ENPM661-Projects/assets/63303617/00957b11-dd82-4daf-87ab-43a588e32e32)
-
-### Sample test case
-#### input
-Enter the clearance:5\
-Enter the radius:5\
- Start node X : 10\
- Start node Y : 10\
-Goal node X : 200\
-Goal node Y : 200\
-Enter the initial angle of orientation in degree(+-30)0\
-Enter the goal angle of orientation in degree(+-30)60\
-Enter the step size (1-10): 10\
-[20, 479, 0] [400, 99, 60] [20, 479, 0] [400, 99, 60]\
-dis:  537\
-Node exploration started\
-Finding the path...\
-Solved!!\
-Total Number of Nodes Explored =  3733\
-Total run time : 79.78 sec
-
-## Node exploration for the sample test case
-https://github.com/kiranajith/ENPM661-Projects/assets/63303617/d6d4c453-dba5-4e37-8a42-dd5add62fa53
+3. clone the project3 repository 
+```
+https://github.com/kiranajith/ENPM661-Projects/tree/Project-3-Phase-2
+```
+4. Source ROS 
+```
+source /opt/ros/galactic/setup.bash
+```
+5. Build the workspace 
+```
+cd ~\project3_ws
+colcon build 
+```
+6. Source the workspace
+``` 
+source install/setup.bash
+```
+7. Launch the environment 
+```
+ros2 launch turtlebot3_project3 competition_world.launch
+```
+8. Run the path palnner node 
+```
+ros2 run project3_pkg project3
+```
