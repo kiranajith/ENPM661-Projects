@@ -19,7 +19,7 @@ g_scaling_canvas_height = g_canvas_height * g_scaling
 g_scaling_canvas_width = g_canvas_width * g_scaling
 g_initial_parent = -1
 g_weighted_a_star = 2
-g_dt = 0.1
+g_dt = 0.2
 
 # Turtlebot3 waffle spec with unit mm
 g_robot_radius = 220
@@ -414,10 +414,12 @@ def cost(node, uL, uR, canvas):
     new_x = new_node[0]
     new_y = new_node[1]
     new_theta = np.deg2rad(new_node[2])
-# Xi, Yi,Thetai: Input point's coordinates
-# Xs, Ys: Start point coordinates for plot function
-# Xn, Yn, Thetan: End point coordintes
+    curve_x = []
+    curve_y = []
+    curve_x.append(new_x)
+    curve_y.append(new_y)
     distance = 0
+
     while t < 1:
         t = t + g_dt
         delta_x = 0.5 * r * (uL + uR) * math.cos(new_theta) * g_dt
@@ -426,6 +428,8 @@ def cost(node, uL, uR, canvas):
         new_y += delta_y
         new_theta += (r / L) * (uR - uL) * g_dt
         distance = distance + math.sqrt(math.pow(delta_x, 2)+math.pow(delta_y, 2))
+        curve_x.append(new_x)
+        curve_y.append(new_y)
         if(round(new_y) < 0 or round(new_y) >= g_scaling_canvas_height) or \
           (round(new_x) < 0 or round(new_x) >= g_scaling_canvas_width):
             clear_path_flag = False
@@ -436,11 +440,13 @@ def cost(node, uL, uR, canvas):
 
     new_theta = np.rad2deg(new_theta)
     return_node = trans_node(new_x, new_y, new_theta)
-    return clear_path_flag, return_node, distance #round(distance, 2)
+    return clear_path_flag, return_node, round(distance), curve_x, curve_y
 
 def action_set(node, canvas, rpm1, rpm2):
     paths = []
     path_distance = []
+    curves_x = []
+    curves_y = []
     
     actions=[[0, rpm1], 
              [rpm1, 0],
@@ -452,12 +458,19 @@ def action_set(node, canvas, rpm1, rpm2):
              [rpm2, rpm1]]
     
     for action in actions:
-        clear_path_flag, new_node, distance =cost(node, action[0], action[1], canvas)
+        clear_path_flag, new_node, distance, curve_x, curve_y = cost(node, action[0], action[1], canvas)
         if clear_path_flag == True:
             paths.append(new_node)
             path_distance.append(distance)
+            # print(curve)
+            # curves = np.append(curves, curve)
+            curves_x.append(curve_x)
+            curves_y.append(curve_y)
+    
+    # print('Curves len: ', len(curves_x))
+    # print(curves_x)
 
-    return paths, path_distance
+    return paths, path_distance, curves_x, curves_y
 
 def get_radius_and_clearance():
 
@@ -511,18 +524,16 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
     # store parent node of each node
     parent_track = {}
     start_key = (scaling_init_state[0], scaling_init_state[1], scaling_init_state[2])
-    # parent_track format:[node, parent node, cost to come]
-    parent_track[start_key] = [[scaling_init_state[0], scaling_init_state[1]], [g_initial_parent, g_initial_parent], 0]
-    # cost_to_come[start_key] = 0
+    # parent_track format:[node, parent node, cost to come, curve_x, curve_y]
+    parent_track[start_key] = [[scaling_init_state[0], scaling_init_state[1]], [g_initial_parent, g_initial_parent], 0, None, None]
     # store visited nodes
-    # visited = np.zeros((g_sacling_canvas_height, g_sacling_canvas_width, g_total_degree // g_angle))
     visited = {}
     
     fileNodes = open("Nodes.txt", "w")
     fileParents = open("Parents.txt", "w")
+    fileParents.writelines('Start parent: ' + str(parent_track[start_key]) + '\n')
     open_list = [] # empty list representing the open list
-    explored_nodes =[]
-    # explored_nodes.append(scaling_init_state)
+    explored_curves_x, explored_curves_y = [], []
     back_track_flag = False
     iteration = 0
     hq.heapify(open_list)
@@ -548,9 +559,8 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
             break 
         
         # perfom the actions
-        next_nodes, distance = action_set(current_node, canvas, rpm1, rpm2)
+        next_nodes, distance, curves_x, curves_y = action_set(current_node, canvas, rpm1, rpm2)
         node_ctc = parent_track[current_key][2]
-        # print(next_nodes)
         for i, next_node in enumerate(next_nodes):
             next_node_key = (next_node[0], next_node[1], next_node[2])
             next_node_ctc = node_ctc + distance[i]
@@ -562,17 +572,21 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
                         parent_track[next_node_key][2] = next_node_ctc
                         hq.heappush(open_list, [cost, list(next_node)])
                         hq.heapify(open_list)
-                        # parent_track[next_node_key][0] = next_node
                         parent_track[next_node_key][1] = current_node
+                        parent_track[next_node_key][3] = curves_x[i]
+                        parent_track[next_node_key][4] = curves_y[i]
                         fileNodes.writelines('Switch ' + str(next_node) + '\n')
             else:
-                parent_track[next_node_key] = [next_node, current_node, next_node_ctc]
+                parent_track[next_node_key] = [next_node, current_node, next_node_ctc, curves_x[i], curves_y[i]]
+                visited[next_node_key] = 1
                 if (euclidean_distance(next_node, scaling_goal_state) <= g_goal_threshold):
                     cost = -1
                 hq.heappush(open_list, [cost, list(next_node)])
                 hq.heapify(open_list)
-                explored_nodes.append([(current_node[0], current_node[1]), (next_node[0], next_node[1])])
+                explored_curves_x.append(curves_x)
+                explored_curves_y.append(curves_y)
                 fileNodes.writelines('Explore ' + str(next_node) + '\n')
+                fileParents.writelines('Explore parent: ' + str(parent_track[next_node_key]) + '\n')
 
         # mark the current node as in the closed list. 0: unexplored 1: visited; 2: closed
         visited[current_key] = 2
@@ -581,14 +595,17 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
 
     if(back_track_flag):
         print("Solved!!")
+        print('Total parent: ', len(parent_track))
         #Call the backtrack function
-        path_x, path_y, path_theta = optimal_path(last_node, parent_track)
-        generate_path(initial_state,last_node,explored_nodes,canvas, path_x, path_y, path_theta)
-        fileNodes.writelines('Total explored: ' + str(len(explored_nodes)) + '\n')
+        _, _, _, path_curve_x, path_curve_y = optimal_path(last_node, parent_track)
+        generate_path(initial_state,last_node,canvas, explored_curves_x, explored_curves_y, path_curve_x, path_curve_y)
+        fileNodes.writelines('Total explored: ' + str(len(explored_curves_x)) + '\n')
+        fileParents.writelines('Total explored: ' + str(len(explored_curves_x)) + '\n')
     else:
         print("Solution Cannot Be Found")
     
     fileNodes.close()
+    fileParents.close()
 
     return
 
@@ -627,7 +644,7 @@ def optimal_path(last_node, parent_track):
     Returns:
         optimal path from the start to goal node  
     """
-    path_x, path_y, path_theta = [], [], []
+    path_x, path_y, path_theta, curve_x, curve_y = [], [], [], [], []
     track_node = (last_node[0], last_node[1], last_node[2])
     path_x.append(last_node[0])
     path_y.append(last_node[1])
@@ -638,46 +655,48 @@ def optimal_path(last_node, parent_track):
         pre_x = parent_track[track_node][1][0]
         pre_y = parent_track[track_node][1][1]
         pre_theta = parent_track[track_node][1][2]
+        pre_curve_x = parent_track[track_node][3]
+        pre_curve_y = parent_track[track_node][4]
 
         track_node = (pre_x, pre_y, pre_theta)
 
         path_x.append(pre_x)
         path_y.append(pre_y)
         path_theta.append(pre_theta)
+        curve_x.append(pre_curve_x)
+        curve_y.append(pre_curve_y)
 
-    return path_x, path_y, path_theta
+    return path_x, path_y, path_theta, curve_x, curve_y
 
-def generate_path(initial_state, final_state, explored_nodes, gen_canvas, path_x, path_y, path_theta):
+def generate_path(initial_state, final_state, gen_canvas, explored_curves_x, explored_curves_y, path_curve_x, path_curve_y):
     """ 
     this function visualises the node exploration  
     """
 
-    # gen_canvas = canvas.copy()
-
     fourcc = cv2.VideoWriter_fourcc(*'XVID')    # Creating video writer to generate a video.
     output = cv2.VideoWriter('node_exploration.avi',fourcc,500,(g_canvas_width, g_canvas_height))
     
-    print("Total Number of Nodes Explored = ",len(explored_nodes)) 
+    print("Total Number of Nodes Explored = ",len(explored_curves_x))
     
     cv2.circle(gen_canvas,(initial_state[0], initial_state[1]),50,(0,0,255),-1)
     cv2.circle(gen_canvas,(final_state[0], final_state[1]),50,(0,0,255),-1)
     resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
     output.write(resize_canvas)
     
-    for i in range(len(explored_nodes)):
-        # curve = np.column_stack((explored_nodes[i][0], explored_nodes[i][1]))
-        # cv2.polylines(gen_canvas, [curve], False, (0,255,0), 10)
-        cv2.arrowedLine(gen_canvas, explored_nodes[i][0], explored_nodes[i][1], (0,255,0), 10, tipLength = 0.2)
-        resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
-        cv2.imshow("Visualization of node exploration",resize_canvas)
-        cv2.waitKey(1)
-        output.write(resize_canvas)
+    # Visualizing the explored path
+    for i in range(len(explored_curves_x)):
+        for j in range(len(explored_curves_x[i])):
+            curve = np.column_stack((explored_curves_x[i][j][:], explored_curves_y[i][j][:]))
+            cv2.polylines(gen_canvas, np.int32([curve]), False, (0,255,0), 10)
+            resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width) # down size
+            cv2.imshow("Visualization of node exploration",resize_canvas)
+            cv2.waitKey(1)
+            output.write(resize_canvas)        
 
     # Visualizing the optimal path
-    for i in reversed(range(len(path_x)-1)):
-        # curve = np.column_stack(((path_x[i+1], path_y[i+1]), (path_x[i], path_y[i])))
-        # cv2.polylines(gen_canvas, [curve], False, (255,0,196), 50)
-        cv2.line(gen_canvas, (path_x[i+1], path_y[i+1]), (path_x[i], path_y[i]), (255,0,196), 50)
+    for i in reversed(range(len(path_curve_x))):
+        path_curve = np.column_stack((path_curve_x[i][:], path_curve_y[i][:]))
+        cv2.polylines(gen_canvas, np.int32([path_curve]), False, (255,0,196), 10)
         resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
         cv2.waitKey(1)
         output.write(resize_canvas)
@@ -706,7 +725,7 @@ if __name__ == '__main__':
     # cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
     # initial_state,goal_state ,step_size = validate_points(canvas)
-    initial_state, goal_state = [500, 500, 0], [6000, 500]
+    initial_state, goal_state = [500, 500, 0], [5750, 1000]
     initial_state[1] = g_scaling_canvas_height-1 - initial_state[1]
     goal_state[1] = g_scaling_canvas_height-1 - goal_state[1]
 
