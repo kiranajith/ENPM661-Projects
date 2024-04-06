@@ -24,7 +24,7 @@ Given a turtlebot3 environment in Gazebo, the task is implement A* algorithm to 
 1. Create a ROS2 workspace
 * Go to your home directory and create a workspace to add the ROS2 packages
 ```
-mkdir -p projeect3ws>/src
+mkdir -p project3ws/src
 cd ~/project3_ws/src
 ```
 
