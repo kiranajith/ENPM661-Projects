@@ -1,3 +1,4 @@
+
 import cv2
 import numpy as np
 import heapq as hq
@@ -47,7 +48,8 @@ def calculate_velocity(Thetai, UL, UR, r, L):
     change_theta = theta_dot + thetan
     x_dot = (r / 2) * (UL + UR) * np.cos(change_theta) 
     y_dot = (r / 2) * (UL + UR) * np.sin(change_theta) 
-    vel_mag = np.sqrt(x_dot** 2 + y_dot** 2) 
+    vel_mag = np.sqrt(x_dot** 2 + y_dot** 2) / 1000
+    print(vel_mag, theta_dot) 
     return vel_mag, theta_dot
 
 def publishVelocity(linear,angular):
@@ -56,6 +58,7 @@ def publishVelocity(linear,angular):
     
     '''
     # print("V_list",v_list)
+    # print('Pub: ', linear,angular)
     node.get_logger().info('Publishing velocity...')
     node.get_logger().info(f'linear:{linear}\nangular:{angular}')
     twist = Twist()
@@ -67,7 +70,7 @@ def publishVelocity(linear,angular):
     twist.angular.y = 0.0 
     twist.angular.z = angular
     vel_pub.publish(twist)
-    rate.sleep()
+    # rate.sleep()
     
 
 def is_within_obstacle(canvas, new_height, new_width):
@@ -291,7 +294,8 @@ def action_set(node, canvas, rpm1, rpm2):
     path_distance = []
     curves_x = []
     curves_y = []
-    velocities = []  # List to store velocities for each action
+    # velocities = []  # List to store velocities for each action
+    action_list = []
     
     actions=[[0, rpm1], 
              [rpm1, 0],
@@ -302,11 +306,12 @@ def action_set(node, canvas, rpm1, rpm2):
              [rpm1, rpm2],
              [rpm2, rpm1]]
     
-    for action in actions:
+    for i, action in enumerate(actions):
         clear_path_flag, new_node, distance, curve_x, curve_y = cost(node, action[0], action[1], canvas)
         if clear_path_flag == True:
             paths.append(new_node)
             path_distance.append(distance)
+            action_list.append(i)
             # print(curve)
             # curves = np.append(curves, curve)
             curves_x.append(curve_x)
@@ -317,8 +322,9 @@ def action_set(node, canvas, rpm1, rpm2):
     
     # print('Curves len: ', len(curves_x))
     # print(curves_x)
+    # print(action_list)
 
-    return paths, path_distance, curves_x, curves_y , velocities
+    return paths, path_distance, curves_x, curves_y , action_list
 
 def get_radius_and_clearance():
 
@@ -372,8 +378,8 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
     # store parent node of each node
     parent_track = {}
     start_key = (scaling_init_state[0], scaling_init_state[1], scaling_init_state[2])
-    # parent_track format:[node, parent node, cost to come, curve_x, curve_y]
-    parent_track[start_key] = [[scaling_init_state[0], scaling_init_state[1]], [g_initial_parent, g_initial_parent], 0, None, None]
+    # parent_track format:[node, parent node, cost to come, curve_x, curve_y, action_list]
+    parent_track[start_key] = [[scaling_init_state[0], scaling_init_state[1]], [g_initial_parent, g_initial_parent], 0, None, None, None]
     # store visited nodes
     visited = {}
     global velocity_dict
@@ -409,7 +415,7 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
             break 
         
         # perfom the actions
-        next_nodes, distance, curves_x, curves_y, velocities = action_set(current_node, canvas, rpm1, rpm2)
+        next_nodes, distance, curves_x, curves_y, action_list = action_set(current_node, canvas, rpm1, rpm2)
         node_ctc = parent_track[current_key][2]
         for i, next_node in enumerate(next_nodes):
             next_node_key = (next_node[0], next_node[1], next_node[2])
@@ -425,9 +431,10 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
                         parent_track[next_node_key][1] = current_node
                         parent_track[next_node_key][3] = curves_x[i]
                         parent_track[next_node_key][4] = curves_y[i]
+                        parent_track[next_node_key][5] = action_list[i]
                         fileNodes.writelines('Switch ' + str(next_node) + '\n')
             else:
-                parent_track[next_node_key] = [next_node, current_node, next_node_ctc, curves_x[i], curves_y[i]]
+                parent_track[next_node_key] = [next_node, current_node, next_node_ctc, curves_x[i], curves_y[i], action_list[i]]
                 visited[next_node_key] = 1
                 if (euclidean_distance(next_node, scaling_goal_state) <= g_goal_threshold):
                     cost = -1
@@ -447,8 +454,8 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
         print("Solved!!")
         print('Total parent: ', len(parent_track))
         #Call the backtrack function
-        _, _, _, path_curve_x, path_curve_y = optimal_path(last_node, parent_track)
-        generate_path(initial_state,last_node,canvas, explored_curves_x, explored_curves_y, path_curve_x, path_curve_y)
+        path_x, path_y, path_theta, path_curve_x, path_curve_y, action_list = optimal_path(last_node, parent_track)
+        generate_path(initial_state,last_node,canvas, explored_curves_x, explored_curves_y, path_curve_x, path_curve_y, path_x, path_y, path_theta, action_list, rpm1, rpm2)
         fileNodes.writelines('Total explored: ' + str(len(explored_curves_x)) + '\n')
         fileParents.writelines('Total explored: ' + str(len(explored_curves_x)) + '\n')
     else:
@@ -494,11 +501,12 @@ def optimal_path(last_node, parent_track):
     Returns:
         optimal path from the start to goal node  
     """
-    path_x, path_y, path_theta, curve_x, curve_y = [], [], [], [], []
+    path_x, path_y, path_theta, curve_x, curve_y, action_list = [], [], [], [], [], []
     track_node = (last_node[0], last_node[1], last_node[2])
     path_x.append(last_node[0])
     path_y.append(last_node[1])
     path_theta.append(last_node[2])
+    # action_list.append(-1)
     # print(last_node, last_node[0], last_node[1], last_node[2], type(last_node))
     # print(last_node, parent_track[last_node[1]][last_node[0]][orientation(last_node[2])])
     while parent_track[track_node][1][0] != g_initial_parent:
@@ -507,6 +515,7 @@ def optimal_path(last_node, parent_track):
         pre_theta = parent_track[track_node][1][2]
         pre_curve_x = parent_track[track_node][3]
         pre_curve_y = parent_track[track_node][4]
+        pre_action_list = parent_track[track_node][5]
 
         track_node = (pre_x, pre_y, pre_theta)
 
@@ -515,19 +524,33 @@ def optimal_path(last_node, parent_track):
         path_theta.append(pre_theta)
         curve_x.append(pre_curve_x)
         curve_y.append(pre_curve_y)
+        action_list.append(pre_action_list)
 
-    return path_x, path_y, path_theta, curve_x, curve_y
+    return path_x, path_y, path_theta, curve_x, curve_y, action_list
 
-def generate_velocities_for_optimal_path(path_x, path_y, path_theta, rpm1, rpm2):
+def generate_velocities_for_optimal_path(path_x, path_y, path_theta, action_list, rpm1, rpm2):
+    actions=[[0, rpm1], 
+             [rpm1, 0],
+             [rpm1, rpm1],
+             [0, rpm2],
+             [rpm2, 0],
+             [rpm2,rpm2],
+             [rpm1, rpm2],
+             [rpm2, rpm1]]
     optimal_path_velocities = {}
-    for i in range(len(path_x)):
+    count = 0 
+    for i in reversed(range(len(path_x)-1)):
         # Calculate velocities for each segment of the optimal path
-        linear_vel, angular_vel = calculate_velocity(path_theta[i], rpm1, rpm2, g_wheel_radius, g_wheel_distance)
+        linear_vel, angular_vel = calculate_velocity(path_theta[i], actions[action_list[i]][0], actions[action_list[i]][1], g_wheel_radius, g_wheel_distance)
+        # publishVelocity(linear_vel,angular_vel)
+        # time.sleep(1)
+        # count += 1
+        # print('count:',count)
         optimal_path_velocities[(path_x[i], path_y[i], path_theta[i])] = (linear_vel, angular_vel)
     return optimal_path_velocities
 
 
-def generate_path(initial_state, final_state, gen_canvas, explored_curves_x, explored_curves_y, path_x, path_y, path_theta):
+def generate_path(initial_state, final_state, gen_canvas, explored_curves_x, explored_curves_y, path_curve_x, path_curve_y, path_x, path_y, path_theta, action_list, rpm1, rpm2):
     """
     This function visualizes the node exploration and publishes the velocities to move the robot along the optimal path.
     """
@@ -552,7 +575,7 @@ def generate_path(initial_state, final_state, gen_canvas, explored_curves_x, exp
             # output.write(resize_canvas)
 
     # Generate velocities for the optimal path
-    optimal_path_velocities = generate_velocities_for_optimal_path(path_x, path_y, path_theta, rpm1, rpm2)
+    optimal_path_velocities = generate_velocities_for_optimal_path(path_x, path_y, path_theta, action_list, rpm1, rpm2)
 
     # Visualizing the optimal path
     for i in range(len(path_x) - 1):
@@ -562,16 +585,17 @@ def generate_path(initial_state, final_state, gen_canvas, explored_curves_x, exp
         # output.write(resize_canvas)
 
     # Publishing velocities for the optimal path
-    for i in range(len(path_x)):
+    for i in reversed(range(len(path_x)-1)):
         node_key = (path_x[i], path_y[i], path_theta[i])
         if node_key in optimal_path_velocities:
             linear_vel, angular_vel = optimal_path_velocities[node_key]
             publishVelocity(linear_vel, angular_vel)
             # Assuming a delay to simulate real robot movement - may need to be adjusted
-            time.sleep(g_dt)
+            time.sleep(1)
+            # rate.sleep()
 
     # Stop the robot after completing the path
-    publishVelocity(0, 0)
+    publishVelocity(0.0, 0.0)
 
     # output.release()
     cv2.destroyAllWindows()
@@ -593,7 +617,7 @@ def main():
     # cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
     # initial_state,goal_state ,step_size = validate_points(canvas)
-    initial_state, goal_state = [500, 500, 0], [5750, 1000]
+    initial_state, goal_state = [500, 1000, 0], [2200, 1000]
     initial_state[1] = g_scaling_canvas_height-1 - initial_state[1]
     goal_state[1] = g_scaling_canvas_height-1 - goal_state[1]
 
