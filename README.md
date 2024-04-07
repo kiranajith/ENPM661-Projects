@@ -34,7 +34,7 @@ git clone https://github.com/shantanuparabumd/turtlebot3_project3.git
 ```
 3. clone the project3 repository 
 ```
-https://github.com/kiranajith/ENPM661-Projects/tree/Project-3-Phase-2
+git clone https://github.com/kiranajith/ENPM661-Projects.git
 ```
 4. Source ROS 
 ```
