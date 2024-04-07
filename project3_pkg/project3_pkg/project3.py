@@ -21,7 +21,7 @@ g_canvas_width = 600
 g_scaling_canvas_height = g_canvas_height * g_scaling
 g_scaling_canvas_width = g_canvas_width * g_scaling
 g_initial_parent = -1
-g_weighted_a_star = 2
+g_weighted_a_star = 4
 g_dt = 0.2
 rpm1, rpm2 = 50, 100
 
@@ -68,7 +68,7 @@ def publishVelocity(linear,angular):
     twist.linear.z = 0.0
     twist.angular.x = 0.0 
     twist.angular.y = 0.0 
-    twist.angular.z = angular
+    twist.angular.z = -angular
     vel_pub.publish(twist)
     # rate.sleep()
     
@@ -101,6 +101,11 @@ def draw_obstacles(canvas, robot_radius, clearance):
     # print(f"height * width: {height} * {width}")
     for i in range(width): # traverse through the width of the canvas 
         for j in range(height): # traverse through the height of the canvas
+
+
+            # wall clearance 
+            if (i<=offset) or (i>=(6000-offset)) or (j<=offset) or (j>=2000-offset):
+                canvas[j][i] = [0,0,255]
             # model the left-most rectangle
             # ----- offset -----------
             if(i-1500+offset>=0 and i-1750-offset<=0 and height-j-1000+offset>=0 and height-j-2000-offset<0):
@@ -132,36 +137,13 @@ def draw_obstacles(canvas, robot_radius, clearance):
     return canvas
 
 
-def draw_obstacles_with_clearance(canvas, clearance):
-    """ this function is used to draw a clearance area around the obstacles
-    it is shown as a red pixalated area around each object 
-
-    Args:
-        canvas : the map on which obstacles are to be drawn 
-        clearance : the amount by which the obstacles are bloated 
-
-    Returns:
-         canvas with bloated obstacles 
-    """
-    canvas = draw_obstacles(canvas)  
-    kernel = np.ones((clearance*2+1, clearance*2+1), np.uint8)
-    red_zone = cv2.dilate(canvas[:, :, 0], kernel, iterations=1)  
-    for i in range(canvas.shape[1]):
-        for j in range(canvas.shape[0]):
-            if red_zone[j, i] == 255 and canvas[j, i, 0] != 255:
-                canvas[j, i] = [0, 0, 255]  # Red color
-
-    return canvas
-
-
-#------------- ACTION FUNCTIONS ---------------
 
 def threshold(n):
     res = round(n*g_scaling)
     return res    
     
-def validate_points(canvas):
-    """ this function checks the validity of start and goal nodes 
+def validate_goal(canvas):
+    """ this function checks the validity of goal point 
 
     Args:
         canvas : the map under consideration 
@@ -171,48 +153,23 @@ def validate_points(canvas):
         if the user inputs an invalid coordinate, ie within the obstacle space or outside the map, 
         user is re-prompted to enter a valid coordinate 
     """
-    initial_state = []
     goal_state = []
-    while True:
-        # check if each entered point is within the free space of the map 
-        while True:
-            state = input(" Start node X : ")
-            state = int(state) * g_scaling
-            if(int(state)<0 or int(state)>canvas.shape[1]-1):
-                print("Retry with a different X :")
-                continue
-            else:
-                initial_state.append(int(state))
-                break
-        while True:
-            state = input(" Start node Y : ")
-            state = int(state) * g_scaling
-            if(int(state)<0 or int(state)>canvas.shape[0]-1):
-                print("Retry with a different Y :")
-                continue
-            else:
-                initial_state.append(int(state))
-                break
-        if(canvas[canvas.shape[0]-1 - initial_state[1]][initial_state[0]][0]==255):
-            print("Invalid start node, inside the obstacle space!")
-            initial_state.clear()
-        else:
-            break
+    print(f"Map Size: height * width: {canvas.shape[0]}mm * {canvas.shape[1]}mm")
     while True:
         while True:
-            state = input("Goal node X : ")
-            state = int(state) * g_scaling
+            state = input("Goal x coordinate in mm: ")
+            # state = int(state) * g_scaling
             if(int(state)<0 or int(state)>canvas.shape[1]-1):
-                print("Retry with a different X :")
+                print("Retry with a different x :")
                 continue
             else:
                 goal_state.append(int(state))
                 break
         while True:
-            state = input("Goal node Y : ")
-            state = int(state) * g_scaling
+            state = input("Goal y coordinate in mm: ")
+            # state = int(state) * g_scaling
             if(int(state)<0 or int(state)>canvas.shape[0]-1):
-                print("Retry with a different Y :")
+                print("Retry with a different y :")
                 continue
             else:
                 goal_state.append(int(state))
@@ -222,31 +179,8 @@ def validate_points(canvas):
             goal_state.clear()
         else:
             break
-    while True:
-        initial_angle = input("Enter the initial angle of orientation in degree(+-30)")
-        if int(initial_angle)%30!=0: # check if the angle entered is valid 
-            print("Enter a valid angle (+-30 degrees)")
-        else:
-            if int(initial_angle)<0:
-                initial_angle = 360 + int(initial_angle)
-            initial_state.append(int(initial_angle))
-            break
-    while True:
-        goal_angle = input("Enter the goal angle of orientation in degree(+-30)")
-        if int(goal_angle)%30!=0: # check if the angle entered is valid 
-            print("Enter a valid angle (+-30 degrees)")
-        else:
-            if int(goal_angle)<0:
-                goal_angle = 360 + int(goal_angle)
-            goal_state.append(int(goal_angle))
-            break
-    while True:
-        step_size = input("Enter the step size (1-10): ")
-        if int(step_size)<1 and int(step_size)>10: # check if the step size entered is valid 
-            print("Invalid step size,try again..")
-        else:
-            break
-    return initial_state,goal_state, int(step_size)
+
+    return goal_state
 
 def cost(node, uL, uR, canvas):
     t = 0
@@ -316,13 +250,7 @@ def action_set(node, canvas, rpm1, rpm2):
             # curves = np.append(curves, curve)
             curves_x.append(curve_x)
             curves_y.append(curve_y)
-            # linear_vel, angular_vel = calculate_velocity(new_node[2], action[0], action[1], g_wheel_radius, g_wheel_distance)
-            # velocities.append((linear_vel, angular_vel))
-            # velocity_dict[tuple(new_node)] = (linear_vel, angular_vel)
-    
-    # print('Curves len: ', len(curves_x))
-    # print(curves_x)
-    # print(action_list)
+
 
     return paths, path_distance, curves_x, curves_y , action_list
 
@@ -542,10 +470,6 @@ def generate_velocities_for_optimal_path(path_x, path_y, path_theta, action_list
     for i in reversed(range(len(path_x)-1)):
         # Calculate velocities for each segment of the optimal path
         linear_vel, angular_vel = calculate_velocity(path_theta[i], actions[action_list[i]][0], actions[action_list[i]][1], g_wheel_radius, g_wheel_distance)
-        # publishVelocity(linear_vel,angular_vel)
-        # time.sleep(1)
-        # count += 1
-        # print('count:',count)
         optimal_path_velocities[(path_x[i], path_y[i], path_theta[i])] = (linear_vel, angular_vel)
     return optimal_path_velocities
 
@@ -554,15 +478,11 @@ def generate_path(initial_state, final_state, gen_canvas, explored_curves_x, exp
     """
     This function visualizes the node exploration and publishes the velocities to move the robot along the optimal path.
     """
-    # fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Creating video writer to generate a video.
-    # output = cv2.VideoWriter('node_exploration.avi', fourcc, 500, (g_canvas_width, g_canvas_height))
-
     print("Total Number of Nodes Explored = ", len(explored_curves_x))
 
     cv2.circle(gen_canvas, (initial_state[0], initial_state[1]), 50, (0, 0, 255), -1)
     cv2.circle(gen_canvas, (final_state[0], final_state[1]), 50, (0, 0, 255), -1)
     resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
-    # output.write(resize_canvas)
 
     # Visualizing the explored path
     for i in range(len(explored_curves_x)):
@@ -572,7 +492,6 @@ def generate_path(initial_state, final_state, gen_canvas, explored_curves_x, exp
             resize_canvas = imutils.resize(gen_canvas, width=g_canvas_width)
             cv2.imshow("Visualization of node exploration", resize_canvas)
             cv2.waitKey(1)
-            # output.write(resize_canvas)
 
     # Generate velocities for the optimal path
     optimal_path_velocities = generate_velocities_for_optimal_path(path_x, path_y, path_theta, action_list, rpm1, rpm2)
@@ -609,15 +528,16 @@ def main():
     canvas = np.ones((g_scaling_canvas_height, g_scaling_canvas_width, 3), dtype="uint8") 
     # specify the amount of clearance by which the obstacles are to be bloated
     # clearance , radius = get_radius_and_clearance()
-    clearance , radius = 5, 5
+    clearance  = 5
     # add the obstacles in the free space of the map, and add the clearance area around them 
-    canvas = draw_obstacles(canvas,radius,clearance) 
+    canvas = draw_obstacles(canvas,g_robot_radius,clearance) 
     # cv2.imshow("Canvas",canvas)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
-    # initial_state,goal_state ,step_size = validate_points(canvas)
-    initial_state, goal_state = [500, 1000, 0], [2200, 1000]
+    # initial_state,goal_state ,step_size = validate_goal(canvas)
+    initial_state = [500, 500, 0]
+    goal_state = validate_goal(canvas)
     initial_state[1] = g_scaling_canvas_height-1 - initial_state[1]
     goal_state[1] = g_scaling_canvas_height-1 - goal_state[1]
 
