@@ -313,9 +313,6 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
     global velocity_dict
 
     
-    fileNodes = open("Nodes.txt", "w")
-    fileParents = open("Parents.txt", "w")
-    fileParents.writelines('Start parent: ' + str(parent_track[start_key]) + '\n')
     open_list = [] # empty list representing the open list
     explored_curves_x, explored_curves_y = [], []
     back_track_flag = False
@@ -328,14 +325,6 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
         current_cost, current_node = node[0], node[1]
         current_key = (current_node[0], current_node[1], current_node[2])  # Tuple key: (x, y, theta)
         
-        if current_key in visited:
-            if (visited[current_key] == 2):
-                fileNodes.writelines('Closed' + str(node) + '\n')
-                continue
-        fileNodes.writelines('Curr ' + str(node) + '\n')
-
-        # the node is within the threshold distance of the goal node
-        # if (euclidean_distance(current_node, scaling_goal_state) <= g_goal_threshold):
         if (current_cost == -1):
             back_track_flag = True
             last_node = current_node
@@ -360,7 +349,7 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
                         parent_track[next_node_key][3] = curves_x[i]
                         parent_track[next_node_key][4] = curves_y[i]
                         parent_track[next_node_key][5] = action_list[i]
-                        fileNodes.writelines('Switch ' + str(next_node) + '\n')
+                        # fileNodes.writelines('Switch ' + str(next_node) + '\n')
             else:
                 parent_track[next_node_key] = [next_node, current_node, next_node_ctc, curves_x[i], curves_y[i], action_list[i]]
                 visited[next_node_key] = 1
@@ -370,8 +359,6 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
                 hq.heapify(open_list)
                 explored_curves_x.append(curves_x)
                 explored_curves_y.append(curves_y)
-                fileNodes.writelines('Explore ' + str(next_node) + '\n')
-                fileParents.writelines('Explore parent: ' + str(parent_track[next_node_key]) + '\n')
 
         # mark the current node as in the closed list. 0: unexplored 1: visited; 2: closed
         visited[current_key] = 2
@@ -384,13 +371,10 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
         #Call the backtrack function
         path_x, path_y, path_theta, path_curve_x, path_curve_y, action_list = optimal_path(last_node, parent_track)
         generate_path(initial_state,last_node,canvas, explored_curves_x, explored_curves_y, path_curve_x, path_curve_y, path_x, path_y, path_theta, action_list, rpm1, rpm2)
-        fileNodes.writelines('Total explored: ' + str(len(explored_curves_x)) + '\n')
-        fileParents.writelines('Total explored: ' + str(len(explored_curves_x)) + '\n')
+
     else:
         print("Solution Cannot Be Found")
     
-    fileNodes.close()
-    fileParents.close()
 
     return
 
@@ -434,9 +418,7 @@ def optimal_path(last_node, parent_track):
     path_x.append(last_node[0])
     path_y.append(last_node[1])
     path_theta.append(last_node[2])
-    # action_list.append(-1)
-    # print(last_node, last_node[0], last_node[1], last_node[2], type(last_node))
-    # print(last_node, parent_track[last_node[1]][last_node[0]][orientation(last_node[2])])
+
     while parent_track[track_node][1][0] != g_initial_parent:
         pre_x = parent_track[track_node][1][0]
         pre_y = parent_track[track_node][1][1]
@@ -515,6 +497,9 @@ def generate_path(initial_state, final_state, gen_canvas, explored_curves_x, exp
 
     # Stop the robot after completing the path
     publishVelocity(0.0, 0.0)
+    node.get_logger().info('Goal reached!')
+    rclpy.shutdown()
+
 
     # output.release()
     cv2.destroyAllWindows()
@@ -536,7 +521,7 @@ def main():
     # cv2.destroyAllWindows()
     # validate the initial and final points before perfoming the algorithm
     # initial_state,goal_state ,step_size = validate_goal(canvas)
-    initial_state = [500, 500, 0]
+    initial_state = [500, 1000, 0]
     goal_state = validate_goal(canvas)
     initial_state[1] = g_scaling_canvas_height-1 - initial_state[1]
     goal_state[1] = g_scaling_canvas_height-1 - goal_state[1]
