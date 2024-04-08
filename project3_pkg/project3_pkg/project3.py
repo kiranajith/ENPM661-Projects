@@ -511,6 +511,7 @@ def main():
     canvas = draw_obstacles(canvas,g_robot_radius,clearance) 
 
     initial_state = [500, 500, 0]
+    
     goal_state = validate_goal(canvas)
     initial_state[1] = g_scaling_canvas_height-1 - initial_state[1]
     goal_state[1] = g_scaling_canvas_height-1 - goal_state[1]
