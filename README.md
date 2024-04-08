@@ -17,7 +17,13 @@ Given a turtlebot3 environment in Gazebo, the task is to implement A* algorithm 
 * cv2
 * time
 * math 
-* imutils 
+* imutils
+
+## Part 1
+run the following command in the terminal 
+```
+python3 proj3p2_weili_kiran.py
+```
 
 ## Part 2
 ## Instructions to run the simulation 
