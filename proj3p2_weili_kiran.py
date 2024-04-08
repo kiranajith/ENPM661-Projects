@@ -18,7 +18,7 @@ g_canvas_width = 600
 g_scaling_canvas_height = g_canvas_height * g_scaling
 g_scaling_canvas_width = g_canvas_width * g_scaling
 g_initial_parent = -1
-g_weighted_a_star = 2
+g_weighted_a_star = 4
 g_dt = 0.2
 
 # Turtlebot3 waffle spec with unit mm
@@ -36,6 +36,7 @@ def is_within_obstacle(canvas, new_height, new_width):
         return False
     else:
         return True
+
 def draw_obstacles(canvas, robot_radius, clearance):   
     """ this function is used to pbstacles in the map
     the obstacles are marked in white pixels
@@ -312,7 +313,35 @@ def action_rotate_positive_sixty_degrees(node, canvas, visited, step):
     else:
         return False, new_node,False
 '''    
-    
+
+def user_inputs():
+    """ this function sets rpm1, rpm2, and clearance by user inputs 
+
+    Returns:
+        Two wheel rpm(revolutions per minute) and clearance
+    """
+    while True:
+        rpm1 = input("Enter the first RPM: ")
+        if int(rpm1)<0 and int(rpm1)>360: # rpm too large would cause dx pass through the obstacles 
+            print("Invalid RPM1,try again..")
+        else:
+            break
+    while True:
+        rpm2 = input("Enter the second RPM: ")
+        if int(rpm2) < 0 and int(rpm2)>360: # rpm too large would cause dx pass through the obstacles 
+            print("Invalid RPM2,try again..")
+        else:
+            break
+    while True:
+        clearance = input("Enter the clearance in mm: ")
+        if int(clearance) < 0: # check if the step size entered is valid 
+            print("Invalid clearance,try again..")
+        else:
+            break
+
+    return int(rpm1), int(rpm2), int(clearance)
+
+
 def validate_points(canvas):
     """ this function checks the validity of start and goal nodes 
 
@@ -326,11 +355,12 @@ def validate_points(canvas):
     """
     initial_state = []
     goal_state = []
+    print(f"Map Size: height * width: {canvas.shape[0]}mm * {canvas.shape[1]}mm")
     while True:
         # check if each entered point is within the free space of the map 
         while True:
-            state = input(" Start node X : ")
-            state = int(state) * g_scaling
+            state = input(" Start node X in mm: ")
+            state = int(state)
             if(int(state)<0 or int(state)>canvas.shape[1]-1):
                 print("Retry with a different X :")
                 continue
@@ -338,8 +368,8 @@ def validate_points(canvas):
                 initial_state.append(int(state))
                 break
         while True:
-            state = input(" Start node Y : ")
-            state = int(state) * g_scaling
+            state = input(" Start node Y in mm: ")
+            state = int(state)
             if(int(state)<0 or int(state)>canvas.shape[0]-1):
                 print("Retry with a different Y :")
                 continue
@@ -353,8 +383,8 @@ def validate_points(canvas):
             break
     while True:
         while True:
-            state = input("Goal node X : ")
-            state = int(state) * g_scaling
+            state = input("Goal node X in mm: ")
+            state = int(state)
             if(int(state)<0 or int(state)>canvas.shape[1]-1):
                 print("Retry with a different X :")
                 continue
@@ -362,8 +392,8 @@ def validate_points(canvas):
                 goal_state.append(int(state))
                 break
         while True:
-            state = input("Goal node Y : ")
-            state = int(state) * g_scaling
+            state = input("Goal node Y in mm: ")
+            state = int(state)
             if(int(state)<0 or int(state)>canvas.shape[0]-1):
                 print("Retry with a different Y :")
                 continue
@@ -384,24 +414,24 @@ def validate_points(canvas):
                 initial_angle = 360 + int(initial_angle)
             initial_state.append(int(initial_angle))
             break
-    while True:
-        goal_angle = input("Enter the goal angle of orientation in degree(+-30)")
-        if int(goal_angle)%30!=0: # check if the angle entered is valid 
-            print("Enter a valid angle (+-30 degrees)")
-        else:
-            if int(goal_angle)<0:
-                goal_angle = 360 + int(goal_angle)
-            goal_state.append(int(goal_angle))
-            break
-    while True:
-        step_size = input("Enter the step size (1-10): ")
-        if int(step_size)<1 and int(step_size)>10: # check if the step size entered is valid 
-            print("Invalid step size,try again..")
-        else:
-            break
-    return initial_state,goal_state, int(step_size)
+    
+    return initial_state, goal_state
 
 def cost(node, uL, uR, canvas):
+    """ this function calculate the linear velocity and angular velocity of each node 
+
+    Args:
+        node: current node
+        uL: left wheel rpm
+        uR: right wheel rpm
+        canvas: canvas
+
+    Returns:
+        clear_path_flag: check if a explored path collide obstacles or walls
+        return_node: explored node 
+        distance: distance between current node and explored node
+        curve_x and curve_y: nodes between current node and explored node. For the purpose of plotting curve path
+    """
     t = 0
     r = g_wheel_radius
     L = g_wheel_distance
@@ -420,6 +450,8 @@ def cost(node, uL, uR, canvas):
     curve_y.append(new_y)
     distance = 0
 
+    # The distance travelled and angle covered in each time step. 
+    # Total time is 1 sec, and the time step is 0.2
     while t < 1:
         t = t + g_dt
         delta_x = 0.5 * r * (uL + uR) * math.cos(new_theta) * g_dt
@@ -443,6 +475,19 @@ def cost(node, uL, uR, canvas):
     return clear_path_flag, return_node, round(distance), curve_x, curve_y
 
 def action_set(node, canvas, rpm1, rpm2):
+    """ this function calculate the linear velocity and angular velocity of each node 
+
+    Args:
+        node: current node
+        canvas: canvas
+        rpm1: the first wheel rpm set by user input
+        rpm2: the second wheel rpm set by user input
+
+    Returns:
+        paths: all the explored nodes in the action set
+        distance: distance of all the explored nodes in the action set
+        curves_x, curves_y: all the nodes between each explored node and current node
+    """
     paths = []
     path_distance = []
     curves_x = []
@@ -716,21 +761,17 @@ if __name__ == '__main__':
     # make an empty canvas 
     canvas = np.ones((g_scaling_canvas_height, g_scaling_canvas_width, 3), dtype="uint8") 
     # specify the amount of clearance by which the obstacles are to be bloated
+    rpm1, rpm2, clearance = user_inputs()
     # clearance , radius = get_radius_and_clearance()
-    clearance , radius = 5, 5
+    # clearance , radius = 5, 5
     # add the obstacles in the free space of the map, and add the clearance area around them 
-    canvas = draw_obstacles(canvas,radius,clearance) 
-    # cv2.imshow("Canvas",canvas)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    canvas = draw_obstacles(canvas, g_robot_radius, clearance) 
+
     # validate the initial and final points before perfoming the algorithm
-    # initial_state,goal_state ,step_size = validate_points(canvas)
-    initial_state, goal_state = [500, 500, 0], [5750, 1000]
+    initial_state, goal_state = validate_points(canvas)
+    # initial_state, goal_state = [500, 500, 0], [5750, 1000]
     initial_state[1] = g_scaling_canvas_height-1 - initial_state[1]
     goal_state[1] = g_scaling_canvas_height-1 - goal_state[1]
-
-    rpm1, rpm2 = 50, 100
-
 
     # perform A* algorithm
     a_star(initial_state, goal_state, canvas, rpm1, rpm2)
