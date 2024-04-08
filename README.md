@@ -8,7 +8,7 @@ UID: 117525298
 UID: 119112397 
 
 ### Problem 
-Given a turtlebot3 environment in Gazebo, the task is implement A* algorithm to have the turtlebot navigate to a given goal position
+Given a turtlebot3 environment in Gazebo, the task is to implement A* algorithm to have the turtlebot navigate to a given goal position
 
 
 ## Libraries used  
@@ -53,13 +53,13 @@ source install/setup.bash
 ```
 ros2 launch turtlebot3_project3 competition_world.launch.py x_pose:=0.0 y_pose:=-0.50
 ```
-This command launches the turtlebot with it's spawn loctaion at (0.0,-0.5) wrt to the origin of the gazebo coordinate frame.
+This command launches the turtlebot with its spawn location at (0.0,-0.5) wrt to the origin of the gazebo coordinate frame.
 
 8. Run the path planner node 
 ```
 ros2 run project3_pkg project3
 ```
-Please note that the start loctaion in the node is (500,500), corresponding to (0,-0.5) according to the gazebo frame.Hence the path to goal state would be with respect to this point. 
+Please note that the start location in the node is (500,500), corresponding to (0,-0.5) according to the gazebo frame. Hence the path to goal state would be with respect to this point. 
 If you want to change the spawn location of the turtebot, make sure to change the *initial_state* value in the main function of the node   
 
 
