@@ -49,7 +49,6 @@ def calculate_velocity(Thetai, UL, UR, r, L):
     x_dot = (r / 2) * (UL + UR) * np.cos(change_theta) 
     y_dot = (r / 2) * (UL + UR) * np.sin(change_theta) 
     vel_mag = np.sqrt(x_dot** 2 + y_dot** 2) / 1000
-    print(vel_mag, theta_dot) 
     return vel_mag, theta_dot
 
 def publishVelocity(linear,angular):
@@ -57,9 +56,6 @@ def publishVelocity(linear,angular):
     Publishes the velocity to /cmd_vel topic of the turtlebot
     
     '''
-    # print("V_list",v_list)
-    # print('Pub: ', linear,angular)
-    node.get_logger().info('Publishing velocity...')
     node.get_logger().info(f'linear:{linear}\nangular:{angular}')
     twist = Twist()
 
@@ -96,9 +92,6 @@ def draw_obstacles(canvas, robot_radius, clearance):
     offset = robot_radius + clearance  # Total enlargement of obstacles
     height, width, _ = canvas.shape 
     height,width,_ = canvas.shape 
-    # print('Dimensions of the canvas')
-    # print('------------------------')
-    # print(f"height * width: {height} * {width}")
     for i in range(width): # traverse through the width of the canvas 
         for j in range(height): # traverse through the height of the canvas
 
@@ -117,9 +110,6 @@ def draw_obstacles(canvas, robot_radius, clearance):
             # model the circle
             if (i - 4200 ) ** 2 + (j - 800) ** 2 - (600 + offset)**2 <= 0:
                 canvas[j][i] = [0,0,255]
-            # model the hexagon 
-            # if(i+offset>=500 and i-offset<=800) and (j-offset<=(0.5*i)+75) and (j+offset>=(0.5*i)-225) and  (j-offset<=(-0.5*i)+725) and (j+offset>=(-0.5*i)+425): 
-            #     canvas[j][i] = [0,0,255] 
 
             # --------- obstacle space --------
             if(i-1500>=0 and i-1750<=0 and height-j-1000>=0 and height-j-2000<0):
@@ -130,10 +120,7 @@ def draw_obstacles(canvas, robot_radius, clearance):
 
             # model the circle
             if (i - 4200) ** 2 + (j - 800) ** 2 - 600**2 <= 0:
-                canvas[j][i] = [255,255,255]
-            # model the hexagon 
-            # if(i>=500 and i<=800) and (j<=(0.5*i)+75) and (j>=(0.5*i)-225) and  (j<=(-0.5*i)+725) and (j>=(-0.5*i)+425): 
-            #     canvas[j][i] = [255,255,255]           
+                canvas[j][i] = [255,255,255]           
     return canvas
 
 
@@ -183,6 +170,9 @@ def validate_goal(canvas):
     return goal_state
 
 def cost(node, uL, uR, canvas):
+    """ 
+    calculate the cost to perfor each action 
+    """
     t = 0
     r = g_wheel_radius
     L = g_wheel_distance
@@ -224,6 +214,10 @@ def cost(node, uL, uR, canvas):
     return clear_path_flag, return_node, round(distance), curve_x, curve_y
 
 def action_set(node, canvas, rpm1, rpm2):
+    """
+    defines the action set for the alogorihtm
+
+    """
     paths = []
     path_distance = []
     curves_x = []
@@ -295,13 +289,9 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
 
     # scaling initial node and goal node
     scaling_init_state = initial_state.copy()
-    # scaling_init_state[0] = initial_state[0] * g_scaling
-    # scaling_init_state[1] = initial_state[1] * g_scaling
     scaling_goal_state = goal_state.copy()
-    # scaling_goal_state[0] = goal_state[0] * g_scaling
-    # scaling_goal_state[1] = goal_state[1] * g_scaling
-    print(initial_state, goal_state, scaling_init_state, scaling_goal_state)
-    print('dis: ', (euclidean_distance(scaling_init_state, scaling_goal_state)))
+    # print(initial_state, goal_state, scaling_init_state, scaling_goal_state)
+    # print('dis: ', (euclidean_distance(scaling_init_state, scaling_goal_state)))
 
     # store parent node of each node
     parent_track = {}
@@ -439,6 +429,10 @@ def optimal_path(last_node, parent_track):
     return path_x, path_y, path_theta, curve_x, curve_y, action_list
 
 def generate_velocities_for_optimal_path(path_x, path_y, path_theta, action_list, rpm1, rpm2):
+    """
+    this function calculates the linear and angular velocity corresponding to each node in the optimal path 
+
+    """
     actions=[[0, rpm1], 
              [rpm1, 0],
              [rpm1, rpm1],
@@ -485,15 +479,15 @@ def generate_path(initial_state, final_state, gen_canvas, explored_curves_x, exp
         cv2.waitKey(1)
         # output.write(resize_canvas)
 
+    node.get_logger().info('Publishing velocity...')
     # Publishing velocities for the optimal path
     for i in reversed(range(len(path_x)-1)):
         node_key = (path_x[i], path_y[i], path_theta[i])
         if node_key in optimal_path_velocities:
             linear_vel, angular_vel = optimal_path_velocities[node_key]
             publishVelocity(linear_vel, angular_vel)
-            # Assuming a delay to simulate real robot movement - may need to be adjusted
+            # add a 1s delay 
             time.sleep(1)
-            # rate.sleep()
 
     # Stop the robot after completing the path
     publishVelocity(0.0, 0.0)
@@ -512,16 +506,11 @@ def main():
     # make an empty canvas 
     canvas = np.ones((g_scaling_canvas_height, g_scaling_canvas_width, 3), dtype="uint8") 
     # specify the amount of clearance by which the obstacles are to be bloated
-    # clearance , radius = get_radius_and_clearance()
-    clearance  = 5
+    clearance  = 1
     # add the obstacles in the free space of the map, and add the clearance area around them 
     canvas = draw_obstacles(canvas,g_robot_radius,clearance) 
-    # cv2.imshow("Canvas",canvas)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    # validate the initial and final points before perfoming the algorithm
-    # initial_state,goal_state ,step_size = validate_goal(canvas)
-    initial_state = [500, 1000, 0]
+
+    initial_state = [500, 500, 0]
     goal_state = validate_goal(canvas)
     initial_state[1] = g_scaling_canvas_height-1 - initial_state[1]
     goal_state[1] = g_scaling_canvas_height-1 - goal_state[1]
