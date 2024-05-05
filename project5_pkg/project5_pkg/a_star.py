@@ -363,14 +363,15 @@ def a_star(initial_state, goal_state, canvas, rpm1, rpm2):
         #Call the backtrack function
         path_x, path_y, path_theta, path_curve_x, path_curve_y, action_list = optimal_path(last_node, parent_track)
         msg = PoseStamped()
-        msg.header.stamp = path_pub.get_clock().now().to_msg()
-        msg.header.frame_id = 'map'
-        msg.pose.position.x = path_x
-        msg.pose.position.y = path_y
-        msg.pose.position.z = 0.0
-        msg.pose.orientation.w = path_theta
+        for i in range(len(path_x)):
+        # msg.header.stamp = path_pub.get_clock().now().to_msg()
+            msg.header.frame_id = 'map'
+            msg.pose.position.x = float(path_x[-1-i])/1000
+            msg.pose.position.y = float(path_y[-1-i])/1000
+            msg.pose.position.z = 0.0
+            msg.pose.orientation.w = float(path_theta[-1-i])
 
-        path_pub.publish(msg)
+            path_pub.publish(msg)
         # generate_path(initial_state,last_node,canvas, explored_curves_x, explored_curves_y, path_curve_x, path_curve_y, path_x, path_y, path_theta, action_list, rpm1, rpm2)
 
     else:
