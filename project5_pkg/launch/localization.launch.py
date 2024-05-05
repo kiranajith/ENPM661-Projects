@@ -44,7 +44,7 @@ def generate_launch_description():
       name="amcl_publisher",
       parameters=[{
           "x":  0.0,
-          "y": -0.5,
+          "y":  0.0,
       }]
   )
 

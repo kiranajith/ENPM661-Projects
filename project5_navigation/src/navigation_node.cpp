@@ -9,8 +9,8 @@ const std::string bt_xml_dir =
 NavigationNode::NavigationNode(const std::string &nodeName) : Node(nodeName)
 {
   this->declare_parameter("location_x", 0.0f);
-  this->declare_parameter("location_y", -0.5f);
-  this->declare_parameter("location_theta", 0.785f);
+  this->declare_parameter("location_y", 0.0f);
+  this->declare_parameter("location_theta", 0.0f);
 
   this->get_parameter("location_x", location_x_);
   this->get_parameter("location_y", location_y_);
