@@ -22,7 +22,7 @@ def is_within_obstacle(canvas, start_node, end_node, dist, theta):
     
     # Check if the edge between two nodes is within obstacle or clearance zone (red pixels indicating clearance)
     if dist != None:
-        for i in range(dist):
+        for i in range(int(dist)):
             x_line = int(round(start_node.x + i * math.cos(theta)))
             y_line = int(round(start_node.y + i * math.sin(theta)))
             line_pixel = canvas[y_line][x_line]
@@ -95,16 +95,17 @@ def draw_obstacles_with_clearance(canvas, clearance):
     return canvas
 
 class Node:
-    def __init__(self, node):
+    def __init__(self, node, theta = None):
         self.x = node[0]
         self.y = node[1]
         self.parent = None
+        self.theta = theta
 
 
 class RRT:
     def __init__(self, start_node, goal_node, step_len, iter, canvas):
-        self.start_node = Node(start_node)
-        self.goal_node = Node(goal_node)
+        self.start_node = Node(start_node, 0)
+        self.goal_node = Node(goal_node, None)
         self.step_len = step_len
         self.iter = iter
         self.vertex = [self.start_node]
@@ -128,7 +129,7 @@ class RRT:
                 explored_path.append([(near_node.x, near_node.y), (new_node.x, new_node.y)])
                 dist = self.euclidean_distance(new_node, self.goal_node)
                 if dist <= self.step_len and (is_within_obstacle(self.canvas, new_node, self.goal_node, dist, theta) == False):
-                    self.generate_new_node(new_node, self.goal_node)
+                    end_node, _, _ = self.generate_new_node(new_node, self.goal_node)
                     solved_flag = True
                     break
 
@@ -137,9 +138,11 @@ class RRT:
         # plt.scatter(x_new, y_new, color = 'b', s = 1)
         # plt.show()
         if solved_flag == True:
-            path = self.optimal_path(new_node)
+            path, theta = self.optimal_path(end_node)
             self.plot_path(path, explored_path)
             print('Node Number: ', node_cnt)
+            # print('theta: ', len(theta), theta)
+            # print('Path: ', len(path), path)
             return path
         else:
             return None
@@ -170,25 +173,28 @@ class RRT:
         dist = min(self.euclidean_distance(random_node, near_node), self.step_len)
         theta = math.atan2((random_node.y - near_node.y), (random_node.x - near_node.x))
 
-        new_node = Node((int(near_node.x + dist * math.cos(theta)), int(near_node.y + dist * math.sin(theta))))
+        new_node = Node((int(near_node.x + dist * math.cos(theta)), int(near_node.y + dist * math.sin(theta))), theta)
         new_node.parent = near_node
 
         return new_node, dist, theta
 
-    def optimal_path(self, new_node):
-        path = [(self.goal_node.x, self.goal_node.y)]
-        pre_node = new_node
+    def optimal_path(self, end_node):
+        path = []
+        theta = []
+        pre_node = end_node
         path.append((pre_node.x, pre_node.y))
+        theta.append(pre_node.theta)
 
         while pre_node.parent is not None:
             pre_node = pre_node.parent
             path.append((pre_node.x, pre_node.y))
+            theta.append(pre_node.theta)
 
-        return path
+        return path, theta
 
     @staticmethod
     def euclidean_distance(node, goal_node):
-        return int(math.hypot((goal_node.x - node.x), (goal_node.y - node.y)))
+        return math.hypot((goal_node.x - node.x), (goal_node.y - node.y))
     
     def plot_path(self, path, explored_nodes):
         cv2.circle(self.canvas,(self.start_node.x, self.start_node.y),5*constant.scaling,(0,0,255),-1)

@@ -120,37 +120,44 @@ class RRT_star:
         x_new, y_new, explored_path = [], [], []
         solved_flag = False
         node_cnt = 0
+        end_node_cnt = 0
+        fileNodes = open("Nodes.txt", "w")
         for i in range(self.iter):
             random_node = self.generate_random_node()
             near_node = self.nearest_neighbor(self.vertex, random_node)
             new_node, dist, theta = self.generate_new_node(near_node, random_node)
+            fileNodes.writelines('New: ' + str(new_node.x) + ', ' + str(new_node.y) + '\n')
             # print('rand, near, new:', random_node.x, random_node.y, near_node.x, near_node.y, new_node.x, new_node.y)
 
-            if (is_within_obstacle(self.canvas, near_node, new_node, dist, theta) == False):
+            if (is_within_obstacle(self.canvas, near_node, new_node, dist, theta) == False) and new_node.x != self.goal_node.x and new_node.y != self.goal_node.y:
                 node_cnt += 1
                 self.rewire(new_node)
                 self.vertex.append(new_node)
                 x_new.append(new_node.x)
                 y_new.append(new_node.y)
 
-                explored_path.append([(near_node.x, near_node.y), (new_node.x, new_node.y)])
+                explored_path.append([(new_node.parent.x, new_node.parent.y), (new_node.x, new_node.y)])
                 # print('rand, near, new:', random_node.x, random_node.y, near_node.x, near_node.y, new_node.x, new_node.y)
                 dist = self.euclidean_distance(new_node, self.goal_node)
                 if dist <= self.step_len and (is_within_obstacle(self.canvas, new_node, self.goal_node, dist, theta) == False):
-                    self.generate_new_node(new_node, self.goal_node)
+                    end_node, _, _ = self.generate_new_node(new_node, self.goal_node)
+                    fileNodes.writelines('End: ' + str(end_node.x) + ', ' + str(end_node.y) + ' Parent: ' + str(end_node.parent.x) + ', ' + str(end_node.parent.y) + '\n')
+                    print('End node: ', end_node.x, end_node.y, end_node.parent.x, end_node.parent.y, new_node.x, new_node.y, new_node.parent.x, new_node.parent.y)
                     solved_flag = True
-                    break
+                    end_node_cnt += 1
+                    # break
 
         # plt.plot(self.start_node.x, self.start_node.y, color = 'r', marker = 'o')
         # plt.plot(self.goal_node.x, self.goal_node.y, color = 'r', marker = 'x')
         # plt.scatter(x_new, y_new, color = 'b', s = 1)
         # plt.show()
+        fileNodes.close()
         if solved_flag == True:
-            path, theta = self.optimal_path(new_node)
+            path, theta = self.optimal_path(end_node)
             self.plot_path(path, explored_path)
-            print('Node Number: ', node_cnt)
-            print('theta: ', len(theta), theta)
-            print('Path: ', len(path), path)
+            print('Node Number: ', node_cnt, end_node_cnt)
+            # print('theta: ', len(theta), theta)
+            # print('Path: ', len(path), path)
             return path
         else:
             return None
@@ -184,9 +191,6 @@ class RRT_star:
         new_node.parent = near_node
         new_node.cost = self.euclidean_distance(near_node, new_node)
         new_node.ctc = near_node.ctc + dist
-        new_node.theta = theta
-        if random_node == self.goal_node and dist <= self.step_len:
-            print(new_node.x, new_node.y, new_node.theta, new_node.parent.x, new_node.parent.y)
 
         return new_node, dist, theta
     
@@ -222,10 +226,10 @@ class RRT_star:
 
 
     
-    def optimal_path(self, new_node):
-        path = [(self.goal_node.x, self.goal_node.y)]
-        theta = [self.goal_node.theta]
-        pre_node = new_node
+    def optimal_path(self, end_node):
+        path = []
+        theta = []
+        pre_node = end_node
         path.append((pre_node.x, pre_node.y))
         theta.append(pre_node.theta)
 
