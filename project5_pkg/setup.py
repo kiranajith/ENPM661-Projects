@@ -30,6 +30,8 @@ setup(
         'console_scripts': [
             'amcl_publisher = project5_pkg.set_init_amcl_pose:main',
             'a_star = project5_pkg.a_star:main',
+            'rrt_star = project5_pkg.rrt_star:main',
+
         ],
     },
 )
