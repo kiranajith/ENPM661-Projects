@@ -1,0 +1,7 @@
+<root main_tree_to_execute = "MainTree" >
+  <BehaviorTree ID="MainTree">
+    <Sequence name="sequence">
+      <GoToPose name="go_to_location" loc="location" />
+    </Sequence>
+  </BehaviorTree>
+</root>
