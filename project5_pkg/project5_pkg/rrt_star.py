@@ -9,7 +9,6 @@ import time
 import cv2
 import imutils
 import rclpy
-import constant
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 
