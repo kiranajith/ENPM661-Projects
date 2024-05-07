@@ -3,16 +3,16 @@
 <package format="3">
   <name>project5_navigation</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="kiranajith97@gmail.com">kiran</maintainer>
+  <description>This package handles the navigation part of the project</description>
+  <maintainer email="kiran99@umd.edu">kiran</maintainer>
+  <maintainer email="weisu77@umd.edu">wei-li</maintainer>
+
   
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
-  <!-- <depend>rclcpp_action</depend>
-  <depend>nav2_msgs</depend> -->
   <depend>behaviortree_cpp_v3</depend>
   <depend>yaml-cpp</depend>
 

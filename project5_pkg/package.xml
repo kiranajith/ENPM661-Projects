@@ -3,8 +3,9 @@
 <package format="3">
   <name>project5_pkg</name>
   <version>0.0.0</version>
-  <description>Project 5 package</description>
+  <description>Project 5 package. This package handles localization</description>
   <maintainer email="kiranajith97@gmail.com">kiran</maintainer>
+  <maintainer email="weisu77@umd.edu">wei-li</maintainer>
   <license>TODO: License declaration</license>
 
 
