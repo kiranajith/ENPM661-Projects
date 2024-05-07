@@ -42,24 +42,22 @@ class InitAmclPosePublisher(Node):
     msg.pose.pose.orientation.z = quat[3]
 
     msg.pose.covariance = [
-        cov, 0.0, 0.0, 0.0, 0.0, 0.0,  # Pos X
-        0.0, cov, 0.0, 0.0, 0.0, 0.0,  # Pos Y
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # Pos Z
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # Rot X
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # Rot Y
-        0.0, 0.0, 0.0, 0.0, 0.0, cov   # Rot Z
+        cov, 0.0, 0.0, 0.0, 0.0, 0.0,  
+        0.0, cov, 0.0, 0.0, 0.0, 0.0,  
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  
+        0.0, 0.0, 0.0, 0.0, 0.0, cov   
     ]
 
     self.publisher.publish(msg)
 
 
 def main(args=None):
+  
   rclpy.init()
   initAmclPosePublisher = InitAmclPosePublisher()
-
   future = initAmclPosePublisher.send_init_pose()
-
   rclpy.spin(initAmclPosePublisher)
-
   initAmclPosePublisher.destroy_node()
   rclpy.shutdown()
