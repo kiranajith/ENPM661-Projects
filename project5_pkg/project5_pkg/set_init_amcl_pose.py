@@ -1,4 +1,3 @@
-
 import time
 import rclpy
 from rclpy.node import Node
@@ -6,7 +5,7 @@ import transforms3d
 from geometry_msgs.msg import PoseWithCovarianceStamped
 
 
-class InitAmclPosePublisher(Node):
+class AmclPublisher(Node):
   def __init__(self):
     super().__init__("init_amcl_pose_publisher")
 
@@ -22,7 +21,7 @@ class InitAmclPosePublisher(Node):
     )
 
     while(self.publisher.get_subscription_count() == 0):
-      self.get_logger().info("Waiting for AMCL Initial Pose subscriber")
+      self.get_logger().info("waiting for AMCL Initial Pose subscriber")
       time.sleep(1.0)
 
   def send_init_pose(self):
@@ -56,8 +55,8 @@ class InitAmclPosePublisher(Node):
 def main(args=None):
   
   rclpy.init()
-  initAmclPosePublisher = InitAmclPosePublisher()
-  future = initAmclPosePublisher.send_init_pose()
-  rclpy.spin(initAmclPosePublisher)
-  initAmclPosePublisher.destroy_node()
+  AmclPublisher = AmclPublisher()
+  future = AmclPublisher.send_init_pose()
+  rclpy.spin(AmclPublisher)
+  AmclPublisher.destroy_node()
   rclpy.shutdown()

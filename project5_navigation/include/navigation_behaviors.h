@@ -18,8 +18,6 @@ public:
   rclcpp::Node::SharedPtr node_ptr_;
   rclcpp_action::Client<NavigateToPose>::SharedPtr action_client_ptr_;
   bool done_flag_;
-
-  // Method overrides
   BT::NodeStatus onStart() override;
   BT::NodeStatus onRunning() override;
   void onHalted() override{};
