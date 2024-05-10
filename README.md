@@ -28,37 +28,49 @@ git clone https://github.com/kiranajith/ENPM661-Projects.git
 ```
 git checkout Project5
 ```
-3. import the turtlebot3 package with vsc
+
+## Part A - visualization node exploration using python
+1. run the rrt_star.py file to visualize RRT* 
+```
+python3 rrt_star.py
+```
+2. run the rrt.py file to visualize RRT.
+```
+python3 rrt.py
+```
+## Part B - Turtlebot3 simualtion in Gazebo 
+
+1. import the turtlebot3 package with vsc
 ```
 cd ~/your_ws/src
 vcs import . < turtlebot3.repos
 ```
-4. build all the packages 
+2. build all the packages 
 ```
 cd ~/your_ws
 colcon build
 ```
-5. source the workspace 
+4. source the workspace 
 ```
 source install/setup.bash
 ```
-6. export the turtlebot3 model 
+5. export the turtlebot3 model 
 ```
 export TURTLEBOT3_MODEL=waffle
 ```
-7. Launch the gazebo simulation
+6. Launch the gazebo simulation
 ```
 ros2 launch project5_pkg turtlebot3_world.launch.py 
 ```
-8. Launch the localization node
+7. Launch the localization node
 ```
 ros2 launch project5_pkg localization.launch.py     
 ```
-9.  Run the navigation node 
+8.  Run the navigation node 
 ```
 ros2 launch project5_navigation navigation.launch.py
 ```
-10. Run the RRT* node
+9. Run the RRT* node
 ```
 ros2 run project5_pkg rrt_star                      
 ```
