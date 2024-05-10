@@ -7,6 +7,17 @@ UID: 117525298
 * Kiran Ajith (kiran99@umd.edu)\
 UID: 119112397 
 
+## Libraries used  
+* numpy
+* heapq
+* cv2
+* time
+* math 
+* imutils
+* mutex
+* queue
+* transforms3d
+
 ## Instructions to run the code
 1. clone this repository to the src folder in your ros2 workspace 
 ```
